@@ -12,4 +12,13 @@ class path:
                 loc = os.path.dirname(loc)
             return loc                                          # returns the str of root path
         else:                                                   # prevents looping forever
-            raise ValueError("__file__ location not in proper root folder")
+            raise ("__file__ location not in proper root folder")
+
+class mov:
+    def location(target):                                       # target can be only directory
+        try:
+           os.chdir(target)
+        except NotADirectoryError:
+            print(target + " is not a directory")
+        except FileNotFoundError:
+            print("Can't find directory: " + target)
