@@ -20,11 +20,17 @@ img_gray = cv2.imread('image.jpg', cv2.IMREAD_GRAYSCALE)     %只讀灰階值
 
 cv2.namedWindow('My Image', cv2.WINDOW_NORMAL)               %讓圖片視窗可調整大小
 
-## instance fuction
+## instance function
 
 initailize:
 
 ```python
 def __init__(self):
     self.var = []
+```
+
+## getting veriable name
+
+```python
+vnames = [name for name in globals() if globals()[name] is veriable]
 ```

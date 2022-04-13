@@ -1,13 +1,13 @@
-import cv2
-import os
-from util import mod_path
+from util.simplify import Data
 
-# loc = mod_path.path.get_parent(__file__)
-# print(loc)
-# loc2 = mod_path.path.get_root(__file__)
-# print(loc2)
+file = 'W_1'
+aaa=3
+bbbb=4
+locals()[file] = 5487
+# locals()[file] = Data(123, file)
 
-# print(os.path.basename(__file__))
-mod_path.mov.location('data')
-img = cv2.imread('W_1.jpg')
-os.system("pause")
+print(locals())
+print(W_1)
+
+# print(W_1.img)
+# print(W_1.name)

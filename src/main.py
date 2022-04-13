@@ -1,13 +1,21 @@
-import cv2
-import numpy
+# from genericpath import exists
 import os
+import cv2
+from util.simplify import path
+from util.simplify import Data
 
-img = cv2.imread('.\data\W_1.jpg')
-if img is not None:
-    cv2.namedWindow('img', cv2.WINDOW_NORMAL)
-    cv2.imshow('img', img)
-    print(img.shape)
-    cv2.waitKey(0)
+path.mov('data')
+file = 'W_1.jpg'
+
+if os.path.isfile(file): 
+    # locals()[file] = Data(cv2.imread(file), file)
+    img = Data(cv2.imread(file), file)
 
 else:
-    raise IOError ("Can't find file")
+    raise FileNotFoundError
+
+
+img.show()
+cv2.waitKey(0)
+
+# blur = Data(cv2.GaussianBlur(img.img, (3, 3), 0), 'blur')
