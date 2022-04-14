@@ -32,14 +32,21 @@ class path:
             print("current working directory is not in proper root folder")
 
 
+class cv:
+
+    def show(img, name):
+        cv2.namedWindow(name, cv2.WINDOW_NORMAL)
+        cv2.imshow(name, img)
+
+
 
 class Data:
 
     def __init__(self, img, name):
         self.img = img
         self.name = name
+
         # print(img.shape)
 
     def show(self):
-        cv2.namedWindow(self.name, cv2.WINDOW_NORMAL)
-        cv2.imshow(self.name, self.img)
+        cv.show(self.img, self.name)

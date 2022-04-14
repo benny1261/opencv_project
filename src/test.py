@@ -1,10 +1,14 @@
 import cv2
-from util import simplify as sp
+from util.simplify import path
+from util.simplify import Data
+from util.simplify import cv
 
-sp.path.mov('data')
+path.mov('data')
 
-img = sp.Data(cv2.imread('W_1.jpg'), 'W_1.jpg')
-# print(img)
-print(img.img)
-# print(img.name)
+img = Data(cv2.imread('W_1.jpg'), 'W_1')
 img.show()
+
+# img = cv2.imread('W_1.jpg')
+# cv2.namedWindow("NMSL", cv2.WINDOW_NORMAL)
+# cv2.imshow("NMSL", img)
+cv2.waitKey(0)

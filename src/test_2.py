@@ -1,13 +1,18 @@
+import glob
+import cv2
+from util.simplify import path
 from util.simplify import Data
 
-file = 'W_1'
-aaa=3
-bbbb=4
-locals()[file] = 5487
-# locals()[file] = Data(123, file)
+path.mov('data')
+img_list = (glob.glob('*.jpg'))
 
-print(locals())
-print(W_1)
+img_dict = {}
+for i in range(len(img_list)):
+    img_dict[img_list[i].split(".")[0]] = Data(cv2.imread(img_list[i]), img_list[i].split(".")[0])
 
-# print(W_1.img)
-# print(W_1.name)
+print(img_dict['F_1_Merge'].name)
+img_dict['F_1_Merge'].show()
+
+cv2.namedWindow("ig", cv2.WINDOW_NORMAL)
+cv2.imshow("ig", img_dict['W_1'].img)
+cv2.waitKey(0)
