@@ -1,13 +1,7 @@
 import tkinter as tk
 from tkinter import  Menu, OptionMenu, StringVar, messagebox
 from tkinter.ttk import Labelframe
-from simplify import path
-
-root = tk.Tk()
-root.title("GUI")
-initframe = Labelframe(root, padding= 40)
-initframe.pack(padx= 30, pady= 20)
-
+# from util.simplify import path
 
 def auto():
     print("NMSL")
@@ -51,7 +45,7 @@ def manual():
     thres.pack(padx= 10, pady= 10)
     
     bar = tk.Scale(thres, orient= tk.HORIZONTAL, length= 600)
-    bar.config(from_= 0, to_= 255, command= fetch)
+    bar.config(from_= 0, to_= 255, command= fetch)      
     bar.grid(row = 0)
     # bar.place(anchor= CENTER, relx= 0.5, rely= 0.4)
 
@@ -93,4 +87,8 @@ def hello():
     mnl.config(command = manual)
     mnl.grid(row= 4, column= 1)
 
-root.mainloop()
+    root.mainloop()
+
+root = tk.Tk()
+root.title("GUI")
+hello()

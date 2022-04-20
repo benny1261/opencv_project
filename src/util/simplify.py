@@ -36,7 +36,7 @@ class path:
 
 
 class cv:
-
+    
     def show(img, name):
         cv2.namedWindow(name, cv2.WINDOW_NORMAL)
         cv2.imshow(name, img)
@@ -63,6 +63,7 @@ class Data:
     def __init__(self, img, name):
         self.img = img
         self.name = name
-
+    
+    # shows the image in class itself (by calling cv.show)
     def show(self):
         cv.show(self.img, self.name)
