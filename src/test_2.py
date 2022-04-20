@@ -13,7 +13,7 @@ img_dict = {}
 for i in range(len(img_list)):
     img_dict[img_list[i].split(".")[0]] = Data(cv2.imread(img_list[i]), img_list[i].split(".")[0])
 
-# img_dict['F_1_Merge'].show()
+img_dict['F_1_Merge'].show()
 img_dict['W_1'].show()
 
 gray = cv2.cvtColor(img_dict['F_1_Merge'].img, cv2.COLOR_BGR2GRAY)
