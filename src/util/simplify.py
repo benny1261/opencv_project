@@ -1,5 +1,7 @@
 import os
+from statistics import median
 import cv2
+import numpy as np
 
 class path:
 
@@ -32,11 +34,27 @@ class path:
             print("current working directory is not in proper root folder")
 
 
+
 class cv:
 
     def show(img, name):
         cv2.namedWindow(name, cv2.WINDOW_NORMAL)
         cv2.imshow(name, img)
+
+    def auto_canny(image, sigma = 0.33):
+        # calculate median number of only middle part
+        v = np.median(cv.crop(image))
+        # canny parameters
+        lower = int(max(0, (1.0 - sigma)*v))
+        upper = int(min(255, (1.0 + sigma)*v))
+        edged = cv2.Canny(image, lower, upper)
+        return edged
+    
+    def crop(img):
+        size = img.shape[0]
+        lower = round(size/5)
+        upper = round(size*4/5)
+        return img[lower:upper, lower:upper]
 
 
 
@@ -45,8 +63,6 @@ class Data:
     def __init__(self, img, name):
         self.img = img
         self.name = name
-
-        # print(img.shape)
 
     def show(self):
         cv.show(self.img, self.name)
