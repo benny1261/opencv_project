@@ -1,94 +1,95 @@
 import tkinter as tk
-from tkinter import  Menu, OptionMenu, StringVar, messagebox
+from tkinter import  Menu, messagebox
 from tkinter.ttk import Labelframe
 # from util.simplify import path
 
-def auto():
-    print("NMSL")
+class window:
 
-def fetch(var):
-    print(var)
+    def __init__(self, f1_dict = {}, f2_dict = {}):
+        self.f1_dict = f1_dict
+        self.f2_dict = f2_dict
 
-def on_closing():
-    if messagebox.askokcancel("quit", "Confirm quit?"):
-        root.destroy()
+    def auto():
+        print("NMSL")
 
-def renew():
-    root.quit
-    root = tk.Tk()
-    root.title("GUI")
-    initframe = Labelframe(root, padding= 40)
-    initframe.pack(padx= 30, pady= 20)
-    lb = tk.Label(initframe, text = "White light image")
-    lb.grid(row= 0, column= 0)
-    w_img = tk.Entry(initframe)
-    w_img.grid(row= 0, column= 1)
-    lb = tk.Label(initframe, text = "Fluorescent image")
-    lb.grid(row= 1, column= 0)
-    f_img = tk.Entry(initframe)
-    f_img.grid(row= 1, column= 1)
-    lb = tk.Label(initframe, text = "")
-    lb.grid(row= 2, columnspan= 2)
-    lb = tk.Label(initframe, text = "Optimize thereshold")
-    lb.grid(row= 3, columnspan= 2)
-    aut = tk.Button(initframe, text = "auto", bg="skyblue", width=8, height=2)
-    aut.config(command = auto)
-    aut.grid(row= 4, column= 0)
-    mnl = tk.Button(initframe, text = "manual", bg="#FF4D40", width=8, height=2)
-    mnl.config(command = manual)
-    mnl.grid(row= 4, column= 1)
+    def fetch():
+        pass
 
-def manual():
-    initframe.destroy()
-    root.geometry("1400x700")
-    thres = Labelframe(root, text= "Threshold", padding= 10)
-    thres.pack(padx= 10, pady= 10)
-    
-    bar = tk.Scale(thres, orient= tk.HORIZONTAL, length= 600)
-    bar.config(from_= 0, to_= 255, command= fetch)      
-    bar.grid(row = 0)
-    # bar.place(anchor= CENTER, relx= 0.5, rely= 0.4)
+    def on_closing(root):
+        if messagebox.askokcancel("quit", "Confirm quit?"):
+            root.destroy()
 
-def hello():
-    root = tk.Tk()
-    root.title("GUI")
-    root.protocol("WM_DELETE_WINDOW", on_closing)                            # execute on_closing when esc
+    def renew(self):
+        self.quit
+        self = tk.Tk()
+        self.title("GUI")
+        initframe = Labelframe(self, padding= 40)
+        initframe.pack(padx= 30, pady= 20)
+        lb = tk.Label(initframe, text = "White light image")
+        lb.grid(row= 0, column= 0)
+        w_img = tk.Entry(initframe)
+        w_img.grid(row= 0, column= 1)
+        lb = tk.Label(initframe, text = "Fluorescent image")
+        lb.grid(row= 1, column= 0)
+        f_img = tk.Entry(initframe)
+        f_img.grid(row= 1, column= 1)
+        lb = tk.Label(initframe, text = "")
+        lb.grid(row= 2, columnspan= 2)
+        lb = tk.Label(initframe, text = "Optimize thereshold")
+        lb.grid(row= 3, columnspan= 2)
+        aut = tk.Button(initframe, text = "auto", bg="skyblue", width=8, height=2)
+        aut.config(command = window.auto)
+        aut.grid(row= 4, column= 0)
+        mnl = tk.Button(initframe, text = "manual", bg="#FF4D40", width=8, height=2)
+        mnl.config(command = window.manual)
+        mnl.grid(row= 4, column= 1)
 
-    mymenu = Menu(root)
-    root.config(menu= mymenu)
-    # create menu item
-    file_menu= Menu(mymenu)
-    mymenu.add_cascade(label= "File", menu= file_menu)
-    file_menu.add_command(label= "New", command= renew)
-    file_menu.add_separator()
-    file_menu.add_command(label= "Exit", command= root.quit)
-    view_menu= Menu(mymenu)
-    view_menu.add_cascade(label= "View", menu= file_menu)
+    def manual(self):
+        # initframe.destroy()
+        self.geometry("1400x700")
+        thres = Labelframe(self, text= "Threshold", padding= 10)
+        thres.pack(padx= 10, pady= 10)
+        
+        bar = tk.Scale(thres, orient= tk.HORIZONTAL, length= 600)
+        bar.config(from_= 0, to_= 255, command= window.fetch)      
+        bar.grid(row = 0)
 
-    initframe = Labelframe(root, padding= 40)
-    initframe.pack(padx= 30, pady= 20)
+    def hello(self):
+        self = tk.Tk()
+        self.title("GUI")
+        self.protocol("WM_DELETE_WINDOW", window.on_closing(self))                            # execute on_closing when esc
 
-    lb = tk.Label(initframe, text = "White light image")
-    lb.grid(row= 0, column= 0)
-    w_img = tk.Entry(initframe)
-    w_img.grid(row= 0, column= 1)
-    lb = tk.Label(initframe, text = "Fluorescent image")
-    lb.grid(row= 1, column= 0)
-    f_img = tk.Entry(initframe)
-    f_img.grid(row= 1, column= 1)
-    lb = tk.Label(initframe, text = "")
-    lb.grid(row= 2, columnspan= 2)
-    lb = tk.Label(initframe, text = "Optimize thereshold")
-    lb.grid(row= 3, columnspan= 2)
-    aut = tk.Button(initframe, text = "auto", bg="skyblue", width=8, height=2)
-    aut.config(command = auto)
-    aut.grid(row= 4, column= 0)
-    mnl = tk.Button(initframe, text = "manual", bg="#FF4D40", width=8, height=2)
-    mnl.config(command = manual)
-    mnl.grid(row= 4, column= 1)
+        mymenu = Menu(self)
+        self.config(menu= mymenu)
+        # create menu item
+        file_menu= Menu(mymenu)
+        mymenu.add_cascade(label= "File", menu= file_menu)
+        file_menu.add_command(label= "New", command= window.renew)
+        file_menu.add_separator()
+        file_menu.add_command(label= "Exit", command= self.quit)
+        view_menu= Menu(mymenu)
+        view_menu.add_cascade(label= "View", menu= file_menu)
 
-    root.mainloop()
+        initframe = Labelframe(self, padding= 40)
+        initframe.pack(padx= 30, pady= 20)
 
-root = tk.Tk()
-root.title("GUI")
-hello()
+        lb = tk.Label(initframe, text = "White light image")
+        lb.grid(row= 0, column= 0)
+        w_img = tk.Entry(initframe)
+        w_img.grid(row= 0, column= 1)
+        lb = tk.Label(initframe, text = "Fluorescent image")
+        lb.grid(row= 1, column= 0)
+        f_img = tk.Entry(initframe)
+        f_img.grid(row= 1, column= 1)
+        lb = tk.Label(initframe, text = "")
+        lb.grid(row= 2, columnspan= 2)
+        lb = tk.Label(initframe, text = "Optimize thereshold")
+        lb.grid(row= 3, columnspan= 2)
+        aut = tk.Button(initframe, text = "auto", bg="skyblue", width=8, height=2)
+        aut.config(command = window.auto)
+        aut.grid(row= 4, column= 0)
+        mnl = tk.Button(initframe, text = "manual", bg="#FF4D40", width=8, height=2)
+        mnl.config(command = window.manual)
+        mnl.grid(row= 4, column= 1)
+
+        self.mainloop()
