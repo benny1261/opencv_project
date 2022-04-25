@@ -5,44 +5,27 @@ from tkinter.ttk import Labelframe
 
 class window:
 
-    def __init__(self, f1_dict = {}, f2_dict = {}):
-        self.f1_dict = f1_dict
-        self.f2_dict = f2_dict
+    def __init__(self):
+        pass
+        # self.f1_dict = f1_dict
+        # self.f2_dict = f2_dict
 
-    def auto():
+    def auto(self):
         print("NMSL")
 
-    def fetch():
+    def fetch(self):
         pass
 
-    def on_closing(root):
+    def viewer(self):
+        pass
+
+    def on_closing(self):
         if messagebox.askokcancel("quit", "Confirm quit?"):
-            root.destroy()
+            self.destroy()
 
     def renew(self):
-        self.quit
-        self = tk.Tk()
-        self.title("GUI")
-        initframe = Labelframe(self, padding= 40)
-        initframe.pack(padx= 30, pady= 20)
-        lb = tk.Label(initframe, text = "White light image")
-        lb.grid(row= 0, column= 0)
-        w_img = tk.Entry(initframe)
-        w_img.grid(row= 0, column= 1)
-        lb = tk.Label(initframe, text = "Fluorescent image")
-        lb.grid(row= 1, column= 0)
-        f_img = tk.Entry(initframe)
-        f_img.grid(row= 1, column= 1)
-        lb = tk.Label(initframe, text = "")
-        lb.grid(row= 2, columnspan= 2)
-        lb = tk.Label(initframe, text = "Optimize thereshold")
-        lb.grid(row= 3, columnspan= 2)
-        aut = tk.Button(initframe, text = "auto", bg="skyblue", width=8, height=2)
-        aut.config(command = window.auto)
-        aut.grid(row= 4, column= 0)
-        mnl = tk.Button(initframe, text = "manual", bg="#FF4D40", width=8, height=2)
-        mnl.config(command = window.manual)
-        mnl.grid(row= 4, column= 1)
+        self.destroy()
+        window.hello(self)
 
     def manual(self):
         # initframe.destroy()
@@ -57,22 +40,25 @@ class window:
     def hello(self):
         self = tk.Tk()
         self.title("GUI")
-        self.protocol("WM_DELETE_WINDOW", window.on_closing(self))                            # execute on_closing when esc
+        self.protocol("WM_DELETE_WINDOW", lambda arg=self:window.on_closing(self))
 
-        mymenu = Menu(self)
-        self.config(menu= mymenu)
-        # create menu item
-        file_menu= Menu(mymenu)
-        mymenu.add_cascade(label= "File", menu= file_menu)
-        file_menu.add_command(label= "New", command= window.renew)
-        file_menu.add_separator()
+        mymenu = Menu(self)                                                                 # create menu
+        self.config(menu= mymenu)                                                           # main menu set to mymenu
+        # create menu items
+        file_menu= Menu(mymenu, tearoff= 0)                                                 # create "file" submenu under mymenu, tearoff= 0 to remove slash
+        file_menu.add_command(label= "New", command= lambda ar=self: window.renew(self))    # create commands under "file"
+        file_menu.add_separator()                                                           # create divider
         file_menu.add_command(label= "Exit", command= self.quit)
-        view_menu= Menu(mymenu)
-        view_menu.add_cascade(label= "View", menu= file_menu)
+        view_menu= Menu(mymenu, tearoff= 0)
+        view_menu.add_command(label= "Browse files", command= window.viewer)
+        # placing submenus
+        mymenu.add_cascade(label= "File", menu= file_menu)
+        mymenu.add_cascade(label= "View", menu= view_menu)
 
+        # home frame
         initframe = Labelframe(self, padding= 40)
         initframe.pack(padx= 30, pady= 20)
-
+        # widgets in main frame
         lb = tk.Label(initframe, text = "White light image")
         lb.grid(row= 0, column= 0)
         w_img = tk.Entry(initframe)
