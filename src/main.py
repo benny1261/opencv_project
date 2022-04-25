@@ -2,7 +2,7 @@ import cv2
 import glob
 from util.simplify import path
 from util.simplify import Data
-from util.gui import window
+from util.gui import Window
 
 
 # Input Area =================================================================================
@@ -19,8 +19,7 @@ else:
     raise FileNotFoundError
 
 # graphic user interface =====================================================================
-prog =  window()
-prog.hello()
+prog =  Window()
 
 # Processing Area ============================================================================
 cv2.waitKey(0)
