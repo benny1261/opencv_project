@@ -9,6 +9,9 @@ from util.gui import Window
 path.mov('data')
 img_list = (glob.glob('*.jpg'))
 
+# graphic user interface =====================================================================
+# prog =  Window()
+
 # Reading Area ===============================================================================
 if img_list:
     img_dict = {}
@@ -18,8 +21,7 @@ if img_list:
 else:
     raise FileNotFoundError
 
-# graphic user interface =====================================================================
-prog =  Window()
+print(img_list)
 
 # Processing Area ============================================================================
 cv2.waitKey(0)

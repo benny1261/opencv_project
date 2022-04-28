@@ -1,6 +1,7 @@
 import glob
 import cv2
 from cv2 import THRESH_BINARY
+from cv2 import COLOR_BayerBG2BGRA
 import numpy as np
 from util.simplify import cv
 from util.simplify import path
@@ -35,10 +36,17 @@ dilate = cv2.dilate(th, kernal, iterations=7)
 erode = cv2.erode(dilate, kernal, iterations=7)
 # cv.show(erode, 'erode')
 cv2.imwrite("lower_noise.jpg", erode)
-inv_msk = cv2.bitwise_not(erode)
-cut = cv2.bitwise_and(img_dict['W_1'].img, img_dict['W_1'].img, mask = inv_msk)
+mask = cv2.bitwise_not(erode)
+cv2.imwrite("mask.jpg", mask)
+cut = cv2.bitwise_and(img_dict['W_1'].img, img_dict['W_1'].img, mask = mask)
 cv.show(cut, 'cut')
 cv2.imwrite("cut.jpg", cut)
+
+# create transparent image
+maskRGBA = np.dstack((mask, mask, mask, erode))
+# print(maskRGBA.shape)
+cv2.imwrite("Transparent.png", maskRGBA)
+# cv.show(maskRGBA, 'A')
 
 # manual canny
 # def empty(x):
