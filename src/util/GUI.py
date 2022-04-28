@@ -25,6 +25,7 @@ class Window:
         self.root.title("Hsu.exe")
         self.root.resizable(0,0)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.export = os.getcwd()
 
         self.hello()                                                                            # execute
         self.root.mainloop()                                                                    # end of gui program when this loop broke
@@ -37,11 +38,6 @@ class Window:
 
     def viewer(self):
         pass
-    
-    # TESTING FUNC
-    def pt(self, widg):
-        # print(widg.get())
-        self.frames['init'].entry['test']= widg.get()
 
     def on_closing(self):
         '''Command triggered when user close window directly'''
@@ -63,6 +59,15 @@ class Window:
         self.root.stat_bar.config(text= os.getcwd())
         # self.root.filename = filedialog.askopenfilename(initialdir= os.getcwd(), filetypes=(("all files", "*.*"),("jpg files", "*.jpg")))
 
+    def choose_des(self):
+        '''Let user select directory where they export data'''
+
+        export = filedialog.askdirectory(initialdir= self.export)
+        if not export:
+            print("canceled")
+        else:
+            self.export = export
+        
     def manual(self):
         '''Manual adjusting threshold'''
 
@@ -87,12 +92,13 @@ class Window:
         file_menu= tk.Menu(mymenu, tearoff= 0)                                                  # create "file" submenu under mymenu, tearoff= 0 to remove slash
         file_menu.add_command(label= "New", command= self.renew)                                # create commands under "file"
         file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
+        file_menu.add_command(label= "Export Path", command = self.choose_des)
         file_menu.add_separator()                                                               # create divider
         file_menu.add_command(label= "Exit", command= self.root.quit)
         view_menu= tk.Menu(mymenu, tearoff= 0)
         view_menu.add_command(label= "CWD Images", command= self.viewer)
 
-        # placing submenus
+        # placing menus
         mymenu.add_cascade(label= "File", menu= file_menu)
         mymenu.add_cascade(label= "View", menu= view_menu)
 
@@ -120,10 +126,6 @@ class Window:
         mnl.grid(row= 4, column= 1)
         init.frame.rowconfigure(2, minsize= 20)
 
-        # test = tk.Entry(init.frame)
-        # test.pack()
-        # self.root.bind('<Return>',lambda arg=test: self.pt(test))        
-
         # initializing window position
         self.root.update_idletasks()
         cord_x = (self.root.winfo_screenwidth()-self.root.winfo_width())/2
@@ -132,4 +134,3 @@ class Window:
 
 if __name__ == '__main__':
     prog = Window()
-    # print(prog.frames['init'].entry['test'])
