@@ -2,6 +2,7 @@ import tkinter as tk
 import os
 from tkinter import messagebox
 from tkinter import filedialog
+from tkinter import ttk
 # from PIL import ImageTk
 from simplify import path
 
@@ -59,6 +60,16 @@ class Window:
         self.root.stat_bar.config(text= os.getcwd())
         # self.root.filename = filedialog.askopenfilename(initialdir= os.getcwd(), filetypes=(("all files", "*.*"),("jpg files", "*.jpg")))
 
+    def export(self):
+        '''export widgets'''
+
+        export = tk.Toplevel(self.root)
+        export.title('Export')
+        self.frames['export'] = export
+        destination = tk.Button(export, text = "export folder", relief= 'SUNKEN')
+        destination.config(command = self.choose_des)
+        destination.pack()
+
     def choose_des(self):
         '''Let user select directory where they export data'''
 
@@ -92,7 +103,7 @@ class Window:
         file_menu= tk.Menu(mymenu, tearoff= 0)                                                  # create "file" submenu under mymenu, tearoff= 0 to remove slash
         file_menu.add_command(label= "New", command= self.renew)                                # create commands under "file"
         file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
-        file_menu.add_command(label= "Export Path", command = self.choose_des)
+        file_menu.add_command(label= "Export", command = self.export)
         file_menu.add_separator()                                                               # create divider
         file_menu.add_command(label= "Exit", command= self.root.quit)
         view_menu= tk.Menu(mymenu, tearoff= 0)

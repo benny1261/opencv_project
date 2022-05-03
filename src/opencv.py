@@ -1,7 +1,6 @@
 import glob
 import cv2
 from cv2 import THRESH_BINARY
-from cv2 import COLOR_BayerBG2BGRA
 import numpy as np
 from util.simplify import cv
 from util.simplify import path
