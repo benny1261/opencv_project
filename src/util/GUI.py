@@ -5,15 +5,17 @@ from tkinter import filedialog
 from tkinter import ttk
 # from PIL import ImageTk
 from simplify import path
+import opencv
 
 class Frame:
     def __init__(self, window, fmname: str = None, padx= 30, pady= 30):
 
         self.frame =  tk.LabelFrame(window, text= fmname, padx= padx, pady= pady)
         self.btn = {}
-        self.entry = {}
+        self.combobox = {}
         self.label = {}
         self.scaler = []
+        self.checkbtn = {}
 
 class Window:
 
@@ -26,7 +28,7 @@ class Window:
         self.root.title("Hsu.exe")
         self.root.resizable(0,0)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.export = os.getcwd()
+        self.destination = os.getcwd()
 
         self.hello()                                                                            # execute
         self.root.mainloop()                                                                    # end of gui program when this loop broke
@@ -60,24 +62,52 @@ class Window:
         self.root.stat_bar.config(text= os.getcwd())
         # self.root.filename = filedialog.askopenfilename(initialdir= os.getcwd(), filetypes=(("all files", "*.*"),("jpg files", "*.jpg")))
 
-    def export(self):
-        '''export widgets'''
+    def export_setting(self):
+        '''export custumization'''
+        # create toplevel
+        export_win = tk.Toplevel(self.root)
+        export_win.title('Export settings')
+        export_win.resizable(0,0)
+        self.frames['export'] = export_win
 
-        export = tk.Toplevel(self.root)
-        export.title('Export')
-        self.frames['export'] = export
-        destination = tk.Button(export, text = "export folder", relief= 'SUNKEN')
-        destination.config(command = self.choose_des)
-        destination.pack()
+        # create frame
+        export_frame = Frame(export_win, fmname= 'external exports')
+        export_frame.frame.grid(row= 0, column= 0, rowspan=2, columnspan= 2, padx= 30, pady= 10, sticky= 'W')
+
+        # widgets in frame
+        export_frame.checkbtn['gray'] = tk.BooleanVar()
+        export_frame.checkbtn['blurred'] = tk.BooleanVar()
+        export_frame.checkbtn['binary'] = tk.BooleanVar()
+        export_frame.checkbtn['mask'] = tk.BooleanVar()
+        tk.Checkbutton(export_frame.frame, text= 'gray', variable= export_frame.checkbtn['gray']).grid(row= 0, column= 0)
+        tk.Checkbutton(export_frame.frame, text= 'blurred', variable= export_frame.checkbtn['blurred']).grid(row= 0, column= 1)
+        tk.Checkbutton(export_frame.frame, text= 'binary', variable= export_frame.checkbtn['binary']).grid(row= 1, column= 0)
+        tk.Checkbutton(export_frame.frame, text= 'mask', variable= export_frame.checkbtn['mask']).grid(row= 1, column= 1)
+
+        # widgets on the right side of frame
+        tk.Label(export_win, text= "export type:").grid(row= 0, column= 1, sticky= 'SE', padx= 50)
+        export_types= ["jpg", "png"]
+        export_frame.combobox['type'] = ttk.Combobox(export_win, values= export_types)
+        export_frame.combobox['type'].current(0)
+        export_frame.combobox['type'].grid(row= 1, column= 1, sticky= 'NE', padx= 10)
+
+        # widgets below frame
+        export_frame.label['destination'] = tk.Label(export_win, text = "destination:", padx= 10).grid(row= 2, column= 0)
+        export_frame.btn['destination'] = tk.Button(export_win, text= self.destination, command = self.choose_des)
+        export_frame.btn['destination'].configure(relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
+        export_frame.btn['destination'].grid(row= 2, column= 1, padx= 5, pady= 10)
+        export_frame.btn['export'] = tk.Button(export_win, text= 'Export', bg='orange', command= lambda: [opencv.export(), export_win.destroy()])   # use lambda to realize multiple commands
+        export_frame.btn['export'].grid(row= 3, column= 1, sticky= 'E', padx= 10, pady= 5)
 
     def choose_des(self):
         '''Let user select directory where they export data'''
 
-        export = filedialog.askdirectory(initialdir= self.export)
-        if not export:
+        des = filedialog.askdirectory(initialdir= self.destination)
+        if not des:
             print("canceled")
         else:
-            self.export = export
+            self.destination = des
+            self.frames['export'].btn['destination'].configure(text= self.destination)
         
     def manual(self):
         '''Manual adjusting threshold'''
@@ -103,7 +133,7 @@ class Window:
         file_menu= tk.Menu(mymenu, tearoff= 0)                                                  # create "file" submenu under mymenu, tearoff= 0 to remove slash
         file_menu.add_command(label= "New", command= self.renew)                                # create commands under "file"
         file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
-        file_menu.add_command(label= "Export", command = self.export)
+        file_menu.add_command(label= "Export", command = self.export_setting)
         file_menu.add_separator()                                                               # create divider
         file_menu.add_command(label= "Exit", command= self.root.quit)
         view_menu= tk.Menu(mymenu, tearoff= 0)

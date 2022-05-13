@@ -2,7 +2,7 @@ import cv2
 import glob
 from util.simplify import path
 from util.simplify import Data
-from util.gui import Window
+from util.GUI import Window
 
 
 # Input Area =================================================================================
