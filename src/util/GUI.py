@@ -5,7 +5,7 @@ from tkinter import filedialog
 from tkinter import ttk
 # from PIL import ImageTk
 from simplify import path
-import opencv
+from opencv import Cvworks
 
 class Frame:
     def __init__(self, window, fmname: str = None, padx= 30, pady= 30):
@@ -20,7 +20,9 @@ class Frame:
 class Window:
 
     def __init__(self, frames = {}):
-
+        
+        # initializing cv
+        self.zang = Cvworks()
         # initializing dict of frames
         self.frames = frames
         # initializing root window
@@ -60,7 +62,27 @@ class Window:
 
         path.mov(filedialog.askdirectory(initialdir= os.getcwd()))
         self.root.stat_bar.config(text= os.getcwd())
-        # self.root.filename = filedialog.askopenfilename(initialdir= os.getcwd(), filetypes=(("all files", "*.*"),("jpg files", "*.jpg")))
+
+        # create progress bar toplevel
+        progwin = tk.Toplevel(self.root)
+        progwin.title('Importing...')
+        progwin.resizable(0,0)
+
+        # progress bar widget
+        progbar = ttk.Progressbar(progwin, length= 200, mode= "indeterminate")
+        progbar.start()
+        progbar.pack(padx= 20, pady= 10)
+
+        # initializing bar position
+        progwin.update_idletasks()
+        cord_x = (progwin.winfo_screenwidth()-progwin.winfo_width())/2
+        cord_y = (progwin.winfo_screenheight()-progwin.winfo_height())/2
+        progwin.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')                                     # uses f-string mothod
+
+        
+        self.zang.impt()
+        print('done')
+        # progwin.destroy()
 
     def export_setting(self):
         '''export custumization'''
@@ -96,7 +118,7 @@ class Window:
         export_frame.btn['destination'] = tk.Button(export_win, text= self.destination, command = self.choose_des)
         export_frame.btn['destination'].configure(relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
         export_frame.btn['destination'].grid(row= 2, column= 1, padx= 5, pady= 10)
-        export_frame.btn['export'] = tk.Button(export_win, text= 'Export', bg='orange', command= lambda: [opencv.export(), export_win.destroy()])   # use lambda to realize multiple commands
+        export_frame.btn['export'] = tk.Button(export_win, text= 'Export', bg='orange', command= lambda: [self.zang.export(), export_win.destroy()])   # use lambda to realize multiple commands
         export_frame.btn['export'].grid(row= 3, column= 1, sticky= 'E', padx= 10, pady= 5)
 
     def choose_des(self):
@@ -166,6 +188,7 @@ class Window:
         mnl.config(command = self.manual)
         mnl.grid(row= 4, column= 1)
         init.frame.rowconfigure(2, minsize= 20)
+        # self.root.filename = filedialog.askopenfilename(initialdir= os.getcwd(), filetypes=(("all files", "*.*"),("jpg files", "*.jpg")))
 
         # initializing window position
         self.root.update_idletasks()

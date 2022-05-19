@@ -4,23 +4,40 @@ from cv2 import THRESH_BINARY
 import numpy as np
 from simplify import cv
 from simplify import path
-from simplify import Data
+from threading import Thread
 
-def export():
-    print('not yet')
+class Cvworks(Thread):                                                              # define a class that inherits from 'Thread' class
+    def __init__(self):
+        super().__init__()
+
+        self.img_dict = {}
+
+    def export(self):
+        print('not yet')
+
+        cv.show(self.img_dict['F_1_Merge'],'F_1_Merge')
+        cv.show(self.img_dict['W_1'],'W_1')
+
+    def impt(self):
+        img_list = (glob.glob('*.jpg'))
+        self.img_dict = {}
+        for i in img_list:
+            self.img_dict[i.split(".")[0]] = cv2.imread(i)
+
+
 
 if __name__ == '__main__':
     path.mov('data')
     img_list = (glob.glob('*.jpg'))
 
     img_dict = {}
-    for i in range(len(img_list)):
-        img_dict[img_list[i].split(".")[0]] = Data(cv2.imread(img_list[i]), img_list[i].split(".")[0])
+    for i in img_list:
+        img_dict[i.split(".")[0]] = cv2.imread(i)
 
-    img_dict['F_1_Merge'].show()
-    img_dict['W_1'].show()
+    cv.show(img_dict['F_1_Merge'],'F_1_Merge')
+    cv.show(img_dict['W_1'],'W_1')
 
-    gray = cv2.cvtColor(img_dict['F_1_Merge'].img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img_dict['F_1_Merge'], cv2.COLOR_BGR2GRAY)
     cv2.imwrite("gray.jpg", gray)
 
     autoblur = cv2.medianBlur(gray, 3)
@@ -41,7 +58,7 @@ if __name__ == '__main__':
     cv2.imwrite("lower_noise.jpg", erode)
     mask = cv2.bitwise_not(erode)
     cv2.imwrite("mask.jpg", mask)
-    cut = cv2.bitwise_and(img_dict['W_1'].img, img_dict['W_1'].img, mask = mask)
+    cut = cv2.bitwise_and(img_dict['W_1'], img_dict['W_1'], mask = mask)
     cv.show(cut, 'cut')
     cv2.imwrite("cut.jpg", cut)
 

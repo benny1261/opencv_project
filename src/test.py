@@ -1,16 +1,16 @@
 import tkinter as tk
 from tkinter import ttk
 import os
+import cv2
+import glob
 from util.simplify import path
+import threading
 
-root = tk.Tk()
-root.title("test")
-# root.geometry('200x200')
+# command = threading.Thread(target= myfunction).start()
 
-tk.Label(root, text = "destination", padx= 10).grid(row= 0, column= 0)
+a= {}
+a[1]= 1
+print(a)
 
-d= os.getcwd()
-b = tk.Button(root, text= d, relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
-b.grid(row= 0, column= 1)
-
-root.mainloop()
+a= {}
+print(a)

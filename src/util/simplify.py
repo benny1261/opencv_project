@@ -69,17 +69,3 @@ class cv:
         lower = round(size/5)
         upper = round(size*4/5)
         return img[lower:upper, lower:upper]
-
-
-
-class Data:
-
-    def __init__(self, img, name):
-        self.img = img
-        self.name = name
-    
-
-    def show(self):
-        '''shows the image in class 'Data' itself by calling cv.show()'''
-
-        cv.show(self.img, self.name)
