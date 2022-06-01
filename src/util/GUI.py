@@ -5,7 +5,7 @@ from tkinter import filedialog
 from tkinter import ttk
 # from PIL import ImageTk
 from simplify import path
-from opencv import Cvworks
+from opencv import Import_thread
 
 class Frame:
     def __init__(self, window, fmname: str = None, padx= 30, pady= 30):
@@ -19,12 +19,9 @@ class Frame:
 
 class Window:
 
-    def __init__(self, frames = {}):
-        
-        # initializing cv
-        self.zang = Cvworks()
+    def __init__(self):
         # initializing dict of frames
-        self.frames = frames
+        self.frames = {}
         # initializing root window
         self.root = tk.Tk()
         self.root.title("Hsu.exe")
@@ -33,7 +30,6 @@ class Window:
         self.destination = os.getcwd()
 
         self.hello()                                                                            # execute
-        self.root.mainloop()                                                                    # end of gui program when this loop broke
 
     def auto(self):
         print("NMSL")
@@ -77,12 +73,20 @@ class Window:
         progwin.update_idletasks()
         cord_x = (progwin.winfo_screenwidth()-progwin.winfo_width())/2
         cord_y = (progwin.winfo_screenheight()-progwin.winfo_height())/2
-        progwin.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')                                     # uses f-string mothod
-
+        progwin.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')                                       # uses f-string mothod
         
-        self.zang.impt()
-        print('done')
-        # progwin.destroy()
+        # connect to imported threading function from opencv.py
+        import_td = Import_thread()                                                                 # create object inherited from threading
+        import_td.start()                                                                           # this will start the run() method in Import_thread
+        self.thread_monitor(progwin, import_td, progwin.destroy)
+
+    def thread_monitor(self, window, thread, command):
+        '''check whether the thread in window is alive, if not, run command'''
+
+        if thread.is_alive():
+            window.after(100, lambda: self.thread_monitor(window, thread, command))
+        else:
+            command()
 
     def export_setting(self):
         '''export custumization'''
@@ -198,3 +202,4 @@ class Window:
 
 if __name__ == '__main__':
     prog = Window()
+    prog.root.mainloop()                                                                            # end of gui program when this loop broke

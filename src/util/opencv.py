@@ -1,29 +1,21 @@
 import glob
 import cv2
-from cv2 import THRESH_BINARY
 import numpy as np
 from simplify import cv
 from simplify import path
 from threading import Thread
 
-class Cvworks(Thread):                                                              # define a class that inherits from 'Thread' class
+class Import_thread(Thread):                                                                # define a class that inherits from 'Thread' class
     def __init__(self):
-        super().__init__()
+        super().__init__()                                                                  # run __init__ of parent class
 
         self.img_dict = {}
 
-    def export(self):
-        print('not yet')
+    def run(self):                                                                          # overwrites run() method from parent class
 
-        cv.show(self.img_dict['F_1_Merge'],'F_1_Merge')
-        cv.show(self.img_dict['W_1'],'W_1')
-
-    def impt(self):
         img_list = (glob.glob('*.jpg'))
-        self.img_dict = {}
         for i in img_list:
             self.img_dict[i.split(".")[0]] = cv2.imread(i)
-
 
 
 if __name__ == '__main__':
