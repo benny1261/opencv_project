@@ -4,6 +4,7 @@ import numpy as np
 from simplify import cv
 from simplify import path
 from threading import Thread
+# import time
 
 class Import_thread(Thread):                                                                # define a class that inherits from 'Thread' class
     def __init__(self):
@@ -16,6 +17,14 @@ class Import_thread(Thread):                                                    
         img_list = (glob.glob('*.jpg'))
         for i in img_list:
             self.img_dict[i.split(".")[0]] = cv2.imread(i)
+
+class Cv_api:
+    def __init__(self, app):
+        self.app = app
+
+    def export(self):
+        print('export thread')
+        print(self.app.frames['ex_export'].checkbtn['gray'].get())
 
 
 if __name__ == '__main__':

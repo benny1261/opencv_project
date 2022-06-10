@@ -1,3 +1,4 @@
+from threading import Thread
 import tkinter as tk
 import os
 from tkinter import messagebox
@@ -6,6 +7,7 @@ from tkinter import ttk
 # from PIL import ImageTk
 from simplify import path
 from opencv import Import_thread
+from opencv import Cv_api
 
 class Frame:
     def __init__(self, window, fmname: str = None, padx= 30, pady= 30):
@@ -27,7 +29,8 @@ class Window:
         self.root.title("Hsu.exe")
         self.root.resizable(0,0)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.destination = os.getcwd()
+        self.working_dic = os.getcwd()
+        self.api = Cv_api(self)
 
         self.hello()                                                                            # execute
 
@@ -54,7 +57,7 @@ class Window:
         self.hello()
     
     def choose_cwd(self):
-        '''Let user select directory where they put data'''
+        '''Let user select directory where they import data'''
 
         path.mov(filedialog.askdirectory(initialdir= os.getcwd()))
         self.root.stat_bar.config(text= os.getcwd())
@@ -98,6 +101,7 @@ class Window:
 
         # create frame
         export_frame = Frame(export_win, fmname= 'external exports')
+        self.frames['ex_export'] = export_frame
         export_frame.frame.grid(row= 0, column= 0, rowspan=2, columnspan= 2, padx= 30, pady= 10, sticky= 'W')
 
         # widgets in frame
@@ -117,24 +121,39 @@ class Window:
         export_frame.combobox['type'].current(0)
         export_frame.combobox['type'].grid(row= 1, column= 1, sticky= 'NE', padx= 10)
 
+        # establish export thread
+        t1 = Thread(target= self.api.export)
+
         # widgets below frame
         export_frame.label['destination'] = tk.Label(export_win, text = "destination:", padx= 10).grid(row= 2, column= 0)
-        export_frame.btn['destination'] = tk.Button(export_win, text= self.destination, command = self.choose_des)
+        export_frame.btn['destination'] = tk.Button(export_win, text= self.working_dic, command = self.choose_des)
         export_frame.btn['destination'].configure(relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
         export_frame.btn['destination'].grid(row= 2, column= 1, padx= 5, pady= 10)
-        export_frame.btn['export'] = tk.Button(export_win, text= 'Export', bg='orange', command= lambda: [self.zang.export(), export_win.destroy()])   # use lambda to realize multiple commands
+        export_frame.btn['export'] = tk.Button(export_win, text= 'Export', bg='orange', command= lambda: [t1.start(), export_win.destroy()])   # use lambda to realize multiple commands
         export_frame.btn['export'].grid(row= 3, column= 1, sticky= 'E', padx= 10, pady= 5)
 
     def choose_des(self):
         '''Let user select directory where they export data'''
 
-        des = filedialog.askdirectory(initialdir= self.destination)
-        if not des:
+        wd = filedialog.askdirectory(initialdir= self.working_dic)
+        if not wd:
             print("canceled")
         else:
-            self.destination = des
-            self.frames['export'].btn['destination'].configure(text= self.destination)
+            self.working_dic = wd
+            self.frames['export'].btn['destination'].configure(text= self.working_dic)
+    
+    def choose_file(self, picture_cate):
+        '''Choose material pictures'''
         
+        filetypes = (('jpg files', '*.jpg'), ('all files', '*.*'))
+        pic = filedialog.askopenfilename(initialdir= self.working_dic, filetypes= filetypes)
+        if pic:
+            if picture_cate == 'w':
+                self.frames['init'].btn['w_img'].configure(text= pic)
+            else:
+                self.frames['init'].btn['f_img'].configure(text= pic)
+        
+
     def manual(self):
         '''Manual adjusting threshold'''
 
@@ -180,9 +199,14 @@ class Window:
         
         # add widgets in home frame
         tk.Label(init.frame, text = "White light image").grid(row= 0, column= 0)
-        w_img = tk.Entry(init.frame).grid(row= 0, column= 1)
-        tk.Label(init.frame, text = "Fluorescent image").grid(row= 1, column= 0)
-        f_img = tk.Entry(init.frame).grid(row= 1, column= 1)
+        init.btn['w_img'] = tk.Button(init.frame, command =lambda: self.choose_file('w'))
+        init.btn['w_img'].configure(relief= tk.SUNKEN, width= 20, bg= 'White', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
+        init.btn['w_img'].grid(row= 0, column= 1)
+        tk.Label(init.frame, text = "Fluorescent image").grid(row= 1, column= 0, pady= (3,0))
+        init.btn['f_img'] = tk.Button(init.frame, command =lambda: self.choose_file('f'))
+        init.btn['f_img'].configure(relief= tk.SUNKEN, width= 20, bg= 'White', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
+        init.btn['f_img'].grid(row= 1, column= 1, pady= (3,0))
+
         lb = tk.Label(init.frame, text = "Optimize thereshold")
         lb.grid(row= 3, columnspan= 2, ipady= 5)
         aut = tk.Button(init.frame, text = "auto", bg="skyblue", width=8, height=2)
