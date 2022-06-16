@@ -29,9 +29,9 @@ class Window:
         self.root.title("Hsu.exe")
         self.root.resizable(0,0)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-        self.working_dic = os.getcwd()
+        self.export_directory = os.getcwd()
+        self.import_td = Import_thread()                                                                # create object inherited from threading
         self.api = Cv_api(self)
-
         self.hello()                                                                            # execute
 
     def auto(self):
@@ -76,12 +76,11 @@ class Window:
         progwin.update_idletasks()
         cord_x = (progwin.winfo_screenwidth()-progwin.winfo_width())/2
         cord_y = (progwin.winfo_screenheight()-progwin.winfo_height())/2
-        progwin.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')                                       # uses f-string mothod
+        progwin.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')                                           # uses f-string mothod
         
         # connect to imported threading function from opencv.py
-        import_td = Import_thread()                                                                 # create object inherited from threading
-        import_td.start()                                                                           # this will start the run() method in Import_thread
-        self.thread_monitor(progwin, import_td, progwin.destroy)
+        self.import_td.start()                                                                          # this will start the run() method in Import_thread
+        self.thread_monitor(progwin, self.import_td, progwin.destroy)
 
     def thread_monitor(self, window, thread, command):
         '''check whether the thread in window is alive, if not, run command'''
@@ -97,11 +96,11 @@ class Window:
         export_win = tk.Toplevel(self.root)
         export_win.title('Export settings')
         export_win.resizable(0,0)
-        self.frames['export'] = export_win
+        # self.frames['export'] = export_win
 
         # create frame
         export_frame = Frame(export_win, fmname= 'external exports')
-        self.frames['ex_export'] = export_frame
+        self.frames['export'] = export_frame
         export_frame.frame.grid(row= 0, column= 0, rowspan=2, columnspan= 2, padx= 30, pady= 10, sticky= 'W')
 
         # widgets in frame
@@ -126,7 +125,7 @@ class Window:
 
         # widgets below frame
         export_frame.label['destination'] = tk.Label(export_win, text = "destination:", padx= 10).grid(row= 2, column= 0)
-        export_frame.btn['destination'] = tk.Button(export_win, text= self.working_dic, command = self.choose_des)
+        export_frame.btn['destination'] = tk.Button(export_win, text= self.export_directory, command = self.choose_des)
         export_frame.btn['destination'].configure(relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
         export_frame.btn['destination'].grid(row= 2, column= 1, padx= 5, pady= 10)
         export_frame.btn['export'] = tk.Button(export_win, text= 'Export', bg='orange', command= lambda: [t1.start(), export_win.destroy()])   # use lambda to realize multiple commands
@@ -135,18 +134,18 @@ class Window:
     def choose_des(self):
         '''Let user select directory where they export data'''
 
-        wd = filedialog.askdirectory(initialdir= self.working_dic)
+        wd = filedialog.askdirectory(initialdir= self.export_directory)
         if not wd:
             print("canceled")
         else:
-            self.working_dic = wd
-            self.frames['export'].btn['destination'].configure(text= self.working_dic)
+            self.export_directory = wd
+            self.frames['export'].btn['destination'].configure(text= self.export_directory)
     
     def choose_file(self, picture_cate):
         '''Choose material pictures'''
         
         filetypes = (('jpg files', '*.jpg'), ('all files', '*.*'))
-        pic = filedialog.askopenfilename(initialdir= self.working_dic, filetypes= filetypes)
+        pic = filedialog.askopenfilename(initialdir= os.getcwd(), filetypes= filetypes)
         if pic:
             if picture_cate == 'w':
                 self.frames['init'].btn['w_img'].configure(text= pic)
