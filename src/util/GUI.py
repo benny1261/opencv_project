@@ -51,10 +51,20 @@ class Window:
 
     def renew(self):
         '''Refresh window to home page by destroying old frames and widgets in root then create a new one'''
-
         for children in self.root.winfo_children():
             children.destroy()
         self.hello()
+
+    def home(self):
+        '''return frame to home page'''
+        for children in self.root.winfo_children():
+            children.grid_forget()
+        
+        # placing menus
+        self.mymenu.add_cascade(label= "File", menu= file_menu)
+        self.mymenu.add_cascade(label= "View", menu= view_menu)
+
+        self.frames['init'].grid(row= 0, column= 0, padx= 10, pady= 5)
     
     def choose_cwd(self):
         '''Let user select directory where they import data'''
@@ -134,12 +144,12 @@ class Window:
     def choose_des(self):
         '''Let user select directory where they export data'''
 
-        wd = filedialog.askdirectory(initialdir= self.export_directory)
-        if not wd:
-            print("canceled")
-        else:
-            self.export_directory = wd
+        des = filedialog.askdirectory(initialdir= self.export_directory)
+        if des:
+            self.export_directory = des
             self.frames['export'].btn['destination'].configure(text= self.export_directory)
+        else:
+            print("canceled")
     
     def choose_file(self, picture_cate):
         '''Choose material pictures'''
@@ -148,9 +158,11 @@ class Window:
         pic = filedialog.askopenfilename(initialdir= os.getcwd(), filetypes= filetypes)
         if pic:
             if picture_cate == 'w':
-                self.frames['init'].btn['w_img'].configure(text= pic)
+                self.frames['init'].btn['w_img'].configure(text= os.path.basename(pic))
+                self.import_td.single_file(pic)
             else:
-                self.frames['init'].btn['f_img'].configure(text= pic)
+                self.frames['init'].btn['f_img'].configure(text= os.path.basename(pic))
+                self.import_td.single_file(pic)
         
 
     def manual(self):
@@ -170,22 +182,23 @@ class Window:
         '''Starting GUI program'''
 
         # create menu
-        mymenu = tk.Menu(self.root)
-        self.root.config(menu= mymenu)                                                          # bound "mymenu" to window
+        self.mymenu = tk.Menu(self.root)
+        self.root.config(menu= self.mymenu)                                                         # bound "self.mymenu" to window
 
         # create menu items
-        file_menu= tk.Menu(mymenu, tearoff= 0)                                                  # create "file" submenu under mymenu, tearoff= 0 to remove slash
-        file_menu.add_command(label= "New", command= self.renew)                                # create commands under "file"
+        file_menu= tk.Menu(self.mymenu, tearoff= 0)                                                 # create "file" submenu under self.mymenu, tearoff= 0 to remove slash
+        file_menu.add_command(label= "New", command= self.renew)
+        file_menu.add_command(label= "Home", command= self.home)
         file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
         file_menu.add_command(label= "Export", command = self.export_setting)
-        file_menu.add_separator()                                                               # create divider
+        file_menu.add_separator()                                                                   # create divider
         file_menu.add_command(label= "Exit", command= self.root.quit)
-        view_menu= tk.Menu(mymenu, tearoff= 0)
+        view_menu= tk.Menu(self.mymenu, tearoff= 0)
         view_menu.add_command(label= "CWD Images", command= self.viewer)
 
         # placing menus
-        mymenu.add_cascade(label= "File", menu= file_menu)
-        mymenu.add_cascade(label= "View", menu= view_menu)
+        self.mymenu.add_cascade(label= "File", menu= file_menu)
+        self.mymenu.add_cascade(label= "View", menu= view_menu)
 
         # create and place status bar in root
         self.root.stat_bar = tk.Label(self.root, borderwidth= 2, relief= "sunken", text= "cwd: " + os.getcwd(), anchor= tk.E)

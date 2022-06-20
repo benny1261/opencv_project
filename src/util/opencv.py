@@ -1,25 +1,30 @@
 import glob
 import cv2
+import os
 import numpy as np
 from simplify import cv
 from simplify import path
 from threading import Thread
 
-class Import_thread(Thread):                                                                # define a class that inherits from 'Thread' class
-    def __init__(self, status= 'directory'):
-        super().__init__()                                                                  # run __init__ of parent class
-
+class Import_thread(Thread):                                                            # define a class that inherits from 'Thread' class
+    def __init__(self):
+        super().__init__()                                                              # run __init__ of parent class
+        self.img_list = []
         self.img_dict = {}
-        self.status= status
 
-    def run(self):                                                                          # overwrites run() method from parent class
-        if self.status== 'directory':
-            img_list = (glob.glob('*.jpg'))
-            for i in img_list:
-                self.img_dict[i.split(".")[0]] = cv2.imread(i)
+    def run(self):                                                                      # overwrites run() method from parent class
 
-        if self.status== 'file':
-            pass
+        self.img_list.extend(glob.glob('*.jpg'))
+        for i in self.img_list:
+            self.img_dict[i.split(".")[0]] = cv2.imread(i)
+    
+    def single_file(self, file):                                                        # external method for importing single file, not thread
+        if os.path.basename(file) in self.img_list:                                     # prevents file be repeatedly imported
+            print('repeated file')
+        elif os.path.isfile(file):
+            self.img_dict[os.path.basename(file).split(".")[0]] = cv2.imread(file)
+        else:
+            print('invalid parameter')
         
 
 class Cv_api:
