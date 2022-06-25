@@ -30,9 +30,9 @@ class Window:
         self.root.resizable(0,0)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.export_directory = os.getcwd()
-        self.import_td = Import_thread()                                                                # create object inherited from threading
+        self.import_td = Import_thread()                                                            # create object inherited from threading
         self.api = Cv_api(self)
-        self.hello()                                                                            # execute
+        self.hello()                                                                                # execute
 
     def auto(self):
         print("NMSL")
@@ -60,11 +60,12 @@ class Window:
         for children in self.root.winfo_children():
             children.grid_forget()
         
-        # placing menus
-        self.mymenu.add_cascade(label= "File", menu= file_menu)
-        self.mymenu.add_cascade(label= "View", menu= view_menu)
-
-        self.frames['init'].grid(row= 0, column= 0, padx= 10, pady= 5)
+        # placing menu
+        self.root.config(menu= self.mymenu)
+        # placing status bar
+        self.root.stat_bar.grid(row= 1, column= 0, sticky="W"+"E")
+        # placing frame and widgits
+        self.frames['init'].frame.grid(row= 0, column= 0, padx= 10, pady= 5)
     
     def choose_cwd(self):
         '''Let user select directory where they import data'''
@@ -186,19 +187,19 @@ class Window:
         self.root.config(menu= self.mymenu)                                                         # bound "self.mymenu" to window
 
         # create menu items
-        file_menu= tk.Menu(self.mymenu, tearoff= 0)                                                 # create "file" submenu under self.mymenu, tearoff= 0 to remove slash
-        file_menu.add_command(label= "New", command= self.renew)
-        file_menu.add_command(label= "Home", command= self.home)
-        file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
-        file_menu.add_command(label= "Export", command = self.export_setting)
-        file_menu.add_separator()                                                                   # create divider
-        file_menu.add_command(label= "Exit", command= self.root.quit)
-        view_menu= tk.Menu(self.mymenu, tearoff= 0)
-        view_menu.add_command(label= "CWD Images", command= self.viewer)
+        self.file_menu= tk.Menu(self.mymenu, tearoff= 0)                                            # create "file" submenu under self.mymenu, tearoff= 0 to remove slash
+        self.file_menu.add_command(label= "New", command= self.renew)
+        self.file_menu.add_command(label= "Home", command= self.home)
+        self.file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
+        self.file_menu.add_command(label= "Export", command = self.export_setting)
+        self.file_menu.add_separator()                                                              # create divider
+        self.file_menu.add_command(label= "Exit", command= self.root.quit)
+        self.view_menu= tk.Menu(self.mymenu, tearoff= 0)
+        self.view_menu.add_command(label= "CWD Images", command= self.viewer)
 
         # placing menus
-        self.mymenu.add_cascade(label= "File", menu= file_menu)
-        self.mymenu.add_cascade(label= "View", menu= view_menu)
+        self.mymenu.add_cascade(label= "File", menu= self.file_menu)
+        self.mymenu.add_cascade(label= "View", menu= self.view_menu)
 
         # create and place status bar in root
         self.root.stat_bar = tk.Label(self.root, borderwidth= 2, relief= "sunken", text= "cwd: " + os.getcwd(), anchor= tk.E)
@@ -206,7 +207,7 @@ class Window:
 
         # establish home frame
         init = Frame(self.root, "Home")
-        self.frames['init'] = init                                                               # make following code cleaner
+        self.frames['init'] = init                                                                  # make following code cleaner
         init.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
         
         # add widgets in home frame
@@ -228,7 +229,6 @@ class Window:
         mnl.config(command = self.manual)
         mnl.grid(row= 4, column= 1)
         init.frame.rowconfigure(2, minsize= 20)
-        # self.root.filename = filedialog.askopenfilename(initialdir= os.getcwd(), filetypes=(("all files", "*.*"),("jpg files", "*.jpg")))
 
         # initializing window position
         self.root.update_idletasks()
