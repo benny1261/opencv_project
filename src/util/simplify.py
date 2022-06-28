@@ -1,5 +1,4 @@
 import os
-from statistics import median
 import cv2
 import numpy as np
 
@@ -60,8 +59,19 @@ class cv:
         # canny parameters
         lower = int(max(0, (1.0 - sigma)*v))
         upper = int(min(255, (1.0 + sigma)*v))
-        edged = cv2.Canny(image, lower, upper)
-        return edged
+        return cv2.Canny(image, lower, upper)
+
+    def auto_thres(image, sigma = 0.33):
+
+        # calculate median number of only middle part
+        v = np.median(cv.crop(image))
+
+        # threshold parameters
+        lower = int(max(0, (1.0 - sigma)*v))
+        upper = int(min(255, (1.0 + sigma)*v))
+
+        ret, th = cv2.threshold(image, 150, 255, cv2.THRESH_BINARY)
+        return th
     
     def crop(img):
 
