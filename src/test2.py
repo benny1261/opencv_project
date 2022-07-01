@@ -1,9 +1,15 @@
 import os
-from tkinter import filedialog
-# ph= 'D:\hsu_project\opencv_project\data\blur.jpg'
+import cv2
+import glob
+import util.opencv as cv
 
-filetypes = (('jpg files', '*.jpg'), ('all files', '*.*'))
-pic = filedialog.askopenfilename(initialdir= os.getcwd(), filetypes= filetypes)
-print(pic)
-print(os.path.basename(pic))
-print(os.path.basename(pic).split(".")[0])
+os.chdir("data")
+img_list = (glob.glob('*.jpg'))
+
+img_dict = {}
+for i in img_list:
+    img_dict[i.split(".")[0]] = cv2.imread(i)
+
+cv.show(img_dict['F_4_0'],'F_4_0')
+
+cv2.waitKey(0)
