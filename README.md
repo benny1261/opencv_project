@@ -11,7 +11,9 @@ or imageJ2 [doc](https://github.com/imagej/pyimagej/blob/master/doc/README.md)
 ## github marks
 
 U:新建檔案
+
 A:加入追蹤
+
 M:與上個commit有差異
 
 ## opencv commands
@@ -29,8 +31,8 @@ def __init__(self):
     self.var = []
 ```
 
-## getting veriable name
+## image properties
 
-```python
-vnames = [name for name in globals() if globals()[name] is veriable]
-```
+* grayscale: 0(black)----255(white)
+
+* shape(y, x, c)

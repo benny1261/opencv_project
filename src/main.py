@@ -1,8 +1,7 @@
 import cv2
 import glob
 from util.simplify import path
-from util.simplify import Data
-from util.GUI import Window
+# from util.GUI import Window
 
 
 # Input Area =================================================================================
@@ -15,13 +14,13 @@ img_list = (glob.glob('*.jpg'))
 # Reading Area ===============================================================================
 if img_list:
     img_dict = {}
-    for i in range(len(img_list)):
-        img_dict[img_list[i].split(".")[0]] = Data(cv2.imread(img_list[i]), img_list[i].split(".")[0])
+    for i in img_list:
+        img_dict[i.split(".")[0]] = cv2.imread(i)
 
 else:
     raise FileNotFoundError
 
-print(img_list)
+print(img_dict)
 
 # Processing Area ============================================================================
-cv2.waitKey(0)
+# cv2.waitKey(0)
