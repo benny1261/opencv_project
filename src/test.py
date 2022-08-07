@@ -3,54 +3,36 @@ from tkinter import ttk
 import os
 import cv2
 import glob
-from util.simplify import path
-from util.simplify import cv
+import math
+import numpy as np
 from threading import Thread
-import time
+import util.opencv as cv
 
-# command = threading.Thread(target= myfunction).start()
+os.chdir("data")
+wbc = cv2.imread('wbc.jpg', cv2.IMREAD_GRAYSCALE)
+wbc = np.array(wbc)
+print(wbc.shape)
 
-class App(tk.Tk):
+def patching(img, divide= 5):
+    size = img.shape[0]
+    patch = np.zeros((divide, divide), dtype= np.uint)
+    # 9081 (0-1816, 1817-3632, 3633-5448, 5449-7264, 7265-9080)
 
-    def __init__(self):
-        super().__init__()
-        self.resizable(0, 0)
-        self.title('Test')
-
-        self.pb = ttk.Progressbar(self, length= 200, mode= "indeterminate")
-        self.pb.start()
-        self.pb.pack(padx= 20, pady= 10)
-
-        print('1')
-        td = Pause()
-        td.start()
-        self.monitor(td)
-        print('2')
+    for y in range (divide):
+        for x in range (divide):
+            if y == 0:
+                if x == 0:
+                    patch[y, x] = img[0: int(np.floor(size/divide)), 0: int(np.floor(size/divide))]
+                patch[y, x] = img[0: np.floor(size/divide), np.floor(x*size/divide) + 1: np.floor((x+1)*size/divide)]      
+            elif x == 0:
+                patch[y, x] = img[np.floor(y*size/divide) + 1: np.floor((y+1)*size/divide), 0: np.floor(size/divide)]
+            else:
+                patch[y, x] = img[np.floor(y*size/divide) + 1: np.floor((y+1)*size/divide), np.floor(x*size/divide) + 1: np.floor((x+1)*size/divide)]
     
-    def monitor(self, my_thread):
-        if my_thread.is_alive():
-            self.after(100, lambda: self.monitor(my_thread))
-            print('aaa')
-        else:
-            self.destroy()
+    return patch
 
+# tst = patching(wbc)
+# cv.show(tst[3][1], "patching")
+# cv.show(wbc[7265:8000, 7265:9081], 't')
 
-class Pause(Thread):
-    def __init__(self):
-        super().__init__()
-    
-    def run(self):
-        time.sleep(3)
-        print('awake')
-    
-    def run2(self):
-        time.sleep(3)
-        print('awake2')
-
-
-
-
-
-if __name__ == '__main__':
-    app = App()
-    app.mainloop()
+cv2.waitKey(0)
