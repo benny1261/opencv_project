@@ -40,34 +40,26 @@ def show(img, name):
     cv2.namedWindow(name, cv2.WINDOW_NORMAL)
     cv2.imshow(name, img)
 
-def auto_canny(image, sigma = 0.33):
 
-    # calculate median number of only middle part
-    v = np.median(crop(image))
-
-    # canny parameters
-    lower = int(max(0, (1.0 - sigma)*v))
-    upper = int(min(255, (1.0 + sigma)*v))
-    return cv2.Canny(image, lower, upper)
-
-def auto_thres(image, sigma = 0.33):
-
-    # calculate median number of only middle part
-    v = np.median(crop(image))
-
-    # threshold parameters
-    lower = int(max(0, (1.0 - sigma)*v))
-    upper = int(min(255, (1.0 + sigma)*v))
-
-    ret, th = cv2.threshold(image, 150, 255, cv2.THRESH_BINARY)
-    return th
-
-def crop(img):
-
+def padding(img, divide= 5):
+    '''needs to notice the number should be int after divide'''
+    
     size = img.shape[0]
-    lower = round(size/5)
-    upper = round(size*4/5)
-    return img[lower:upper, lower:upper]
+    print(size)
+    pad = np.zeros((divide, divide, int(size/divide), int(size/divide)), dtype= np.uint8)
+    # 9085 (0-1816, 1817-3633)
+
+    for y in range (divide):
+        for x in range (divide):
+            pad[y, x] = img[int(y*size/divide): int((y+1)*size/divide) , int(x*size/divide) : int((x+1)*size/divide)]
+            if y == divide - 1:
+                pad[y, x] = img[int(y*size/divide): int((y+1)*size/divide) + 1, int(x*size/divide) : int((x+1)*size/divide)]
+                if x == divide - 1:
+                    pad[y, x] = img[int(y*size/divide): int((y+1)*size/divide) + 1, int(x*size/divide) : int((x+1)*size/divide) + 1]
+            elif x == divide - 1:
+                pad[y, x] = img[int(y*size/divide): int((y+1)*size/divide), int(x*size/divide) : int((x+1)*size/divide) + 1]
+    
+    return pad
 
 
 if __name__ == '__main__':
