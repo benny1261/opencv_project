@@ -8,6 +8,7 @@ import util.opencv as cv
 os.chdir("data")
 img_list = (glob.glob('*.jpg'))
 kernal = np.ones((3,3), np.uint8)
+blur_kernal = (5, 5)
 
 # Reading =====================================================================================
 img_dict = {} # dtype=uint8, shape=(9081, 9081, 3)
@@ -15,8 +16,7 @@ for i in img_list:
     img_dict[i.split(".")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE) # shape=(9081, 9081)
 
 # EpCam =======================================================================================
-blur_ep = cv2.GaussianBlur(img_dict['epcam'], (5, 5), 0)
-ret,th_ep = cv2.threshold(blur_ep,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+ret,th_ep = cv.otsu_th(img_dict['epcam'], blur_kernal)
 erode_ep = cv2.erode(th_ep, kernal, iterations=3)
 dilate_ep = cv2.dilate(erode_ep, kernal, iterations=3)
 
@@ -24,15 +24,11 @@ print('ep: ',ret)
 cv2.imwrite("ep_bin.jpg", dilate_ep)
 
 # hoechest ====================================================================================
-blur_hoe = cv2.GaussianBlur(img_dict['hcst'], (5, 5), 0)
-ret,th_hoe = cv2.threshold(blur_hoe,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-
+ret,th_hoe = cv.otsu_th(img_dict['hcst'], blur_kernal)
 print('hoe: ',ret)
 
 # CD45 ========================================================================================
-blur_45 = cv2.GaussianBlur(img_dict['wbc'], (5, 5), 0)
-ret,th_45 = cv2.threshold(blur_45,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-
+ret,th_45 = cv.otsu_th(img_dict['wbc'], blur_kernal)
 print('CD45: ',ret)
 
 # =============================================================================================
