@@ -41,49 +41,10 @@ def show(img, name):
     cv2.imshow(name, img)
 
 
-def padding(img, divide= 5, thresholding= True, kernal_size= (5, 5)):
-    '''the size should be int after divide'''
-    
-    size = img.shape[0]
-    pad = np.zeros((divide, divide, int(size/divide), int(size/divide)), dtype= np.uint8)
-    # 9085 (0-1816, 1817-3633)
-
-    for y in range (divide):
-        for x in range (divide):
-            pad[y, x] = img[int(y*size/divide): int((y+1)*size/divide) , int(x*size/divide) : int((x+1)*size/divide)]
-            if y == divide - 1:
-                pad[y, x] = img[int(y*size/divide): int((y+1)*size/divide) + 1, int(x*size/divide) : int((x+1)*size/divide)]
-                if x == divide - 1:
-                    pad[y, x] = img[int(y*size/divide): int((y+1)*size/divide) + 1, int(x*size/divide) : int((x+1)*size/divide) + 1]
-            elif x == divide - 1:
-                pad[y, x] = img[int(y*size/divide): int((y+1)*size/divide), int(x*size/divide) : int((x+1)*size/divide) + 1]
-            
-            if thresholding:
-                ret, pad[y, x]= otsu_th(pad[y, x], kernal_size= kernal_size)
-                print(y, x,": ", ret)
-    
-    return pad
-
-def auto_border(img, divide= 5, border_type = cv2.BORDER_DEFAULT):
-    '''upper/lower are pixels added respectivly'''
-
-    size = img.shape[0]
-    if size % divide == 0:
-        return ()
-    
-    else:
-        patch = divide - size%divide
-        upper = int(np.floor(patch/2))
-        lower = patch - upper
-        img_bor = cv2.copyMakeBorder(img, upper, lower, upper, lower, borderType= border_type)
-
-        return (img_bor, upper, lower)
-
 def otsu_th(img, kernal_size):
     blur = cv2.GaussianBlur(img, kernal_size, 0)
     ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     return ret, th
-
 
 
 if __name__ == '__main__':

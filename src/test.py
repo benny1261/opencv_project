@@ -14,11 +14,14 @@ print(wbc.shape)
 
 kernal = (5,5)
 
-bor = cv.auto_border(wbc)
-tst = cv.padding(bor[0], thresholding= True, kernal_size= kernal)
+a = [np.array_split(_, 5, 1) for _ in np.array_split(wbc, 5)]   # list comprehension
 
-# cv.show(tst[3, 1], "patching")
-ret, th = cv.otsu_th(tst[3, 1], kernal)
-cv.show(th, "th")
+for y in range(len(a)):
+    for x in range(len(a[:])):
+        ret, a[y][x] = cv.otsu_th(a[y][x], kernal)
+        print(a[y][x].shape, ret)
+
+b = np.block(a)
+cv.show(b, "b")
 
 cv2.waitKey(0)
