@@ -4,53 +4,29 @@ import os
 import cv2
 import glob
 from util.simplify import path
-from util.simplify import cv
+import util.opencv as cv
 from threading import Thread
-import time
+import numpy as np
 
-# command = threading.Thread(target= myfunction).start()
+# cv2.Sobel()
+# cv2.canny()
+# need ROI: a[3][0]
+# need normalize: a[3][1]
+# -----------------------------------------------------------------------------------------
 
-class App(tk.Tk):
+os.chdir("data")
+wbc = cv2.imread("wbc.jpg", cv2.IMREAD_GRAYSCALE)
+kernal = (5,5)
 
-    def __init__(self):
-        super().__init__()
-        self.resizable(0, 0)
-        self.title('Test')
+a = [np.array_split(_, 5, 1) for _ in np.array_split(wbc, 5)]   # list comprehension
 
-        self.pb = ttk.Progressbar(self, length= 200, mode= "indeterminate")
-        self.pb.start()
-        self.pb.pack(padx= 20, pady= 10)
+for y in range(len(a)):
+    for x in range(len(a[:])):
+        ret, a[y][x] = cv.otsu_th(a[y][x], kernal)
+        print(a[y][x].shape, ret)
 
-        print('1')
-        td = Pause()
-        td.start()
-        self.monitor(td)
-        print('2')
-    
-    def monitor(self, my_thread):
-        if my_thread.is_alive():
-            self.after(100, lambda: self.monitor(my_thread))
-            print('aaa')
-        else:
-            self.destroy()
+# b = np.block(a)
+# cv.show(b, "b")
 
-
-class Pause(Thread):
-    def __init__(self):
-        super().__init__()
-    
-    def run(self):
-        time.sleep(3)
-        print('awake')
-    
-    def run2(self):
-        time.sleep(3)
-        print('awake2')
-
-
-
-
-
-if __name__ == '__main__':
-    app = App()
-    app.mainloop()
+cv2.waitKey(0)
+cv2.destroyAllWindows()             # enables close all image by one press

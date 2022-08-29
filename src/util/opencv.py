@@ -40,34 +40,11 @@ def show(img, name):
     cv2.namedWindow(name, cv2.WINDOW_NORMAL)
     cv2.imshow(name, img)
 
-def auto_canny(image, sigma = 0.33):
 
-    # calculate median number of only middle part
-    v = np.median(crop(image))
-
-    # canny parameters
-    lower = int(max(0, (1.0 - sigma)*v))
-    upper = int(min(255, (1.0 + sigma)*v))
-    return cv2.Canny(image, lower, upper)
-
-def auto_thres(image, sigma = 0.33):
-
-    # calculate median number of only middle part
-    v = np.median(crop(image))
-
-    # threshold parameters
-    lower = int(max(0, (1.0 - sigma)*v))
-    upper = int(min(255, (1.0 + sigma)*v))
-
-    ret, th = cv2.threshold(image, 150, 255, cv2.THRESH_BINARY)
-    return th
-
-def crop(img):
-
-    size = img.shape[0]
-    lower = round(size/5)
-    upper = round(size*4/5)
-    return img[lower:upper, lower:upper]
+def otsu_th(img, kernal_size):
+    blur = cv2.GaussianBlur(img, kernal_size, 0)
+    ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    return ret, th
 
 
 if __name__ == '__main__':
