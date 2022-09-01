@@ -36,3 +36,20 @@ def __init__(self):
 * grayscale: 0(black)----255(white)
 
 * shape(y, x, c)
+
+## useful plots
+
+line plot:
+
+```python
+hist = cv2.calcHist([img], [0], None, [256], [0, 256])
+plt.plot(hist)                              # "label = ..." is an optional param, then plt.legend()
+plt.show()
+```
+
+bar plot:
+
+```python
+plt.hist(img.ravel(), 256, [0, 256])        # ravel turn into 1d array
+plt.show()
+```
