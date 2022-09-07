@@ -22,22 +22,29 @@ RESIZE_FACTOR = 30
 CLIP_LIMIT = 4
 TILEGRIDSIZE = 16
 
+# DEVIDE&PROCESS----------------------------------------------------------------------------
+clahe = cv2.createCLAHE(clipLimit= CLIP_LIMIT, tileGridSize= (TILEGRIDSIZE, TILEGRIDSIZE))                          # default tileGridSize 8x8
+
 a = [np.array_split(_, 5, 1) for _ in np.array_split(wbc, 5)]                                                       # list comprehension
 
-# for y in range(len(a)):
-#     for x in range(len(a[:])):
-#         ret, a[y][x] = cv.otsu_th(a[y][x], blur_kernal)
-#         print(a[y][x].shape, ret)
+for y in range(len(a)):
+    for x in range(len(a[:])):
+        img = cv2.resize(a[y][x], None, fx= RESIZE_FACTOR, fy = RESIZE_FACTOR, interpolation= cv2.INTER_CUBIC)      # cubic for enlarge
+        # img = clahe.apply(a[y][x])
+        img = clahe.apply(img)
+        img = cv2.resize(img, None, fx= 1/RESIZE_FACTOR, fy = 1/RESIZE_FACTOR, interpolation= cv2.INTER_AREA)       # area for shrink
+        _, a[y][x] = cv.otsu_th(img, blur_kernal)
+        print("coordinate: ",y,x,"->",a[y][x].shape, "threshold=",_)
 
-# b = np.block(a)
-# cv.show(b, "b")
+b = np.block(a)
+cv.show(b, "b")
+cv2.imwrite("fin_re.jpg", b)
 
 # t = a[3][1]
 t = a[3][0]
 # t_hist = cv2.calcHist([t], [0], None, [256], [0, 256])
 # plt.plot(t_hist, label = "original")
 # cv.show(t, "orig")
-cv2.imwrite("0_wbc30.jpg", t)
 t_big = cv2.resize(t, None, fx= RESIZE_FACTOR, fy = RESIZE_FACTOR, interpolation= cv2.INTER_CUBIC)                  # cubic for enlarge
 
 # THRES--------------------------------------
@@ -46,7 +53,6 @@ t_big = cv2.resize(t, None, fx= RESIZE_FACTOR, fy = RESIZE_FACTOR, interpolation
 
 # CLAHE-------------------------------------------------------------------------------------
 clahe = cv2.createCLAHE(clipLimit= CLIP_LIMIT, tileGridSize= (TILEGRIDSIZE, TILEGRIDSIZE))                          # default tileGridSize 8x8
-print(clahe.getTilesGridSize())
 clahe_big = clahe.apply(t_big)
 clahe_big = cv2.resize(clahe_big, None, fx= 1/RESIZE_FACTOR, fy = 1/RESIZE_FACTOR, interpolation= cv2.INTER_AREA)   # area for shrink
 # clahe_hist = cv2.calcHist([clahe_big], [0], None, [256], [0, 256])
@@ -57,9 +63,8 @@ clahe_big = cv2.resize(clahe_big, None, fx= 1/RESIZE_FACTOR, fy = 1/RESIZE_FACTO
 # plt.legend()
 # plt.show()
 
-
 # cv.show(clahe_big, "clahe_big")
-cv2.imwrite("1_clahe"f'{TILEGRIDSIZE}'".jpg", clahe_big)
+# cv2.imwrite("1_clahe"f'{TILEGRIDSIZE}'".jpg", clahe_big)
 
 _, thres_clahe = cv.otsu_th(clahe_big, blur_kernal)
 print("threshold of clahed image= ", _)
@@ -67,7 +72,7 @@ print("threshold of clahed image= ", _)
 # cv2.imwrite("thres"f'{TILEGRIDSIZE}'".jpg", thres_clahe)
 fin = cv.erode_dilate(thres_clahe, kernal_size= 3, iterations= 2)
 # cv.show(fin, "fin")
-cv2.imwrite("clahe_fin"f'{TILEGRIDSIZE}'".jpg", fin)
+# cv2.imwrite("clahe_fin"f'{TILEGRIDSIZE}'".jpg", fin)
 
 # test effect of resize (resize is a litle bit better, more small signal showed)------------
 # clahe_orig = clahe.apply(t)
