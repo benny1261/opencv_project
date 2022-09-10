@@ -1,3 +1,4 @@
+from pickletools import uint8
 import tkinter as tk
 from tkinter import ttk
 import os
@@ -18,6 +19,7 @@ import matplotlib.pyplot as plt
 os.chdir("data")
 wbc = cv2.imread("wbc.jpg", cv2.IMREAD_GRAYSCALE)
 blur_kernal = (5,5)
+SPLIT = 5
 RESIZE_FACTOR = 30
 CLIP_LIMIT = 4
 TILEGRIDSIZE = 16
@@ -25,22 +27,24 @@ TILEGRIDSIZE = 16
 # DEVIDE&PROCESS----------------------------------------------------------------------------
 clahe = cv2.createCLAHE(clipLimit= CLIP_LIMIT, tileGridSize= (TILEGRIDSIZE, TILEGRIDSIZE))                          # default tileGridSize 8x8
 
-a = [np.array_split(_, 5, 1) for _ in np.array_split(wbc, 5)]                                                       # list comprehension
+a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(wbc, SPLIT)]                                               # list comprehension
 
-for y in range(len(a)):
-    for x in range(len(a[:])):
-        img = cv2.resize(a[y][x], None, fx= RESIZE_FACTOR, fy = RESIZE_FACTOR, interpolation= cv2.INTER_CUBIC)      # cubic for enlarge
-        # img = clahe.apply(a[y][x])
+for iter in np.ndindex((len(a), len(a[:]))):
+    img = a[iter[0]][iter[1]]
+    if iter not in ((0, 0), (0, len(a[:])-1), (len(a)-1, 0), (len(a)-1, len(a[:])-1)):
         img = clahe.apply(img)
-        img = cv2.resize(img, None, fx= 1/RESIZE_FACTOR, fy = 1/RESIZE_FACTOR, interpolation= cv2.INTER_AREA)       # area for shrink
-        _, a[y][x] = cv.otsu_th(img, blur_kernal)
-        print("coordinate: ",y,x,"->",a[y][x].shape, "threshold=",_)
+        ret, a[iter[0]][iter[1]] = cv.otsu_th(img, blur_kernal)
+    else:
+        img = cv2.GaussianBlur(img, blur_kernal, 0)
+        ret, a[iter[0]][iter[1]] = cv2.threshold(img,100,255,cv2.THRESH_BINARY)
+    
+    print("coordinate:", iter, ",threshold= ", ret)
 
 b = np.block(a)
 cv.show(b, "b")
-cv2.imwrite("fin_re.jpg", b)
+cv2.imwrite("fin.jpg", b)
+# np.savetxt("foo.csv", b, delimiter=",")
 
-# t = a[3][1]
 t = a[3][0]
 # t_hist = cv2.calcHist([t], [0], None, [256], [0, 256])
 # plt.plot(t_hist, label = "original")
