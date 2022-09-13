@@ -12,8 +12,6 @@ import matplotlib.pyplot as plt
 
 # cv2.Sobel()
 # cv2.canny()
-# need ROI: a[3][0]
-# need normalize: a[3][1]
 
 # PARAMETERS--------------------------------------------------------------------------------
 os.chdir("data")
@@ -40,7 +38,7 @@ for iter in np.ndindex((len(a), len(a[:]))):
     
     print("coordinate:", iter, ",threshold= ", ret)
 
-b = np.block(a)
+b = cv.crop(np.block(a))
 cv.show(b, "b")
 cv2.imwrite("fin.jpg", b)
 # np.savetxt("foo.csv", b, delimiter=",")

@@ -1,3 +1,4 @@
+import math
 import glob
 import cv2
 import os
@@ -53,6 +54,13 @@ def erode_dilate(img, kernal_size= 3, iterations= 3):
     _ = cv2.dilate(_, kernal, iterations= iterations)
     return _
 
+def crop(img):
+    block = int(np.floor(img.shape[0]/5))
+    radius = int(block*1.5*math.sqrt(2))
+    center = int(np.floor(img.shape[0]/2))
+    mask = cv2.circle(np.zeros_like(img), (center, center), radius, (255, 255, 255), -1)
+    masked = cv2.bitwise_and(img, mask)
+    return masked
 
 if __name__ == '__main__':
     os.chdir("data")
@@ -62,43 +70,8 @@ if __name__ == '__main__':
     for i in img_list:
         img_dict[i.split(".")[0]] = cv2.imread(i)
 
-    # show(img_dict['F_4_2'],'F_4_2')
-
-    gray = cv2.cvtColor(img_dict['F_4_0'], cv2.COLOR_BGR2GRAY)
-    # cv2.imwrite("gray.jpg", gray)
-    show(gray, 'gray')
-
-    # plotting -------------------------------------------------------------------------------------------------------
-    # intensity = np.arange(256, dtype= np.uint)                                              # or use np.linspace
-    # amount = np.zeros_like(intensity)
-    # for i in intensity:
-    #     amount[i] = np.count_nonzero(gray == i)
-
-    # print(amount)
-    # plt.plot(intensity, amount)
-    # plt.xlabel("intensity")
-    # plt.ylabel("amount")
-    # plt.show()
-    # ----------------------------------------------------------------------------------------------------------------
-
-    # autoblur = cv2.medianBlur(gray, 3)
-    # Cv.show(autoblur, 'autoblur')
-
-    # th = cv2.adaptiveThreshold(autoblur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 3, 1)
-    ret, th = cv2.threshold(gray, 110, 255, cv2.THRESH_BINARY)
-    show(th, 'th')
-    cv2.imwrite("thres.jpg", th)
-
-    # cv.show(cv.auto_thres(autoblur), 'at')
-
-    # kernal = np.ones((3,3), np.uint8)
-    # dilate = cv2.dilate(th, kernal, iterations=7)
-    # Cv.show(dilate, 'dilate')
-    # erode = cv2.erode(dilate, kernal, iterations=7)
-    # Cv.show(erode, 'erode')
-    # mask = cv2.bitwise_not(erode)
-    # cut = cv2.bitwise_and(img_dict['W_1'], img_dict['W_1'], mask = mask)
-    # Cv.show(cut, 'cut')
+    wbc = img_dict["wbc"]
+    show(crop(wbc), "cp")
 
     # create transparent image
     # maskRGBA = np.dstack((mask, mask, mask, erode))
