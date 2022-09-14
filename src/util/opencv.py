@@ -47,7 +47,7 @@ def otsu_th(img, kernal_size):
     ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     return ret, th
 
-def erode_dilate(img, kernal_size= 3, iterations= 3):
+def erode_dilate(img, kernal_size= 3, iterations= 2):
     '''kernal size must be odd and >= 3'''
     kernal = np.ones((kernal_size,kernal_size), np.uint8)
     _ = cv2.erode(img, kernal, iterations= iterations)

@@ -29,13 +29,10 @@ a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(wbc, SPLIT)]           
 
 for iter in np.ndindex((len(a), len(a[:]))):
     img = a[iter[0]][iter[1]]
-    if iter not in ((0, 0), (0, len(a[:])-1), (len(a)-1, 0), (len(a)-1, len(a[:])-1)):
-        img = clahe.apply(img)
-        ret, a[iter[0]][iter[1]] = cv.otsu_th(img, blur_kernal)
-    else:
-        img = cv2.GaussianBlur(img, blur_kernal, 0)
-        ret, a[iter[0]][iter[1]] = cv2.threshold(img,100,255,cv2.THRESH_BINARY)
-    
+    img = clahe.apply(img)
+    ret, img = cv.otsu_th(img, blur_kernal)
+    a[iter[0]][iter[1]] = cv.erode_dilate(img)
+
     print("coordinate:", iter, ",threshold= ", ret)
 
 b = cv.crop(np.block(a))
