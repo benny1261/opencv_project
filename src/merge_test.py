@@ -42,12 +42,14 @@ contours, hierarchy = cv2.findContours(canny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPRO
 #     cv2.circle(epbg, (cx, cy), radius, (0,0,255), 2)
 # cv2.imwrite("wtf2.jpg", epbg)
 
-for _ in contours:
+for _ in contours:      # len=125
     M = cv2.moments(_)
     cx = int(M["m10"] / M["m00"])
     cy = int(M["m01"] / M["m00"])
     cv2.circle(epbg, (cx, cy), 30, (0,0,255), 2)
 cv2.imwrite("wtf2.jpg", epbg)
+
+print(contours)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()

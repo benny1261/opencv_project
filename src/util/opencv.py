@@ -4,7 +4,7 @@ import cv2
 import os
 import numpy as np
 from threading import Thread
-import matplotlib.pyplot as plt
+import pandas as pd
 
 class Import_thread(Thread):                                                            # define a class that inherits from 'Thread' class
     def __init__(self):
@@ -36,11 +36,29 @@ class Cv_api:
         print(self.app.frames['export'].checkbtn['gray'].get())
 
 
+def img2dataframe(img):
+    '''find contours from img, calculate properties of each one and store in dataframe'''
+    contours, _ = cv2.findContours(cv2.Canny(img, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    center = []
+    roundness = []
+
+    for _ in contours:
+        M = cv2.moments(_)
+        cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+        center.append((cx, cy))
+        e = 4*math.pi*cv2.contourArea(_)/cv2.arcLength(_, closed= True)**2
+        roundness.append(e)
+    
+    data = {
+        "center":center,
+        "roundness":roundness
+    }
+    return pd.DataFrame(data)
+
 def show(img, name):
 
     cv2.namedWindow(name, cv2.WINDOW_NORMAL)
     cv2.imshow(name, img)
-
 
 def otsu_th(img, kernal_size):
     blur = cv2.GaussianBlur(img, kernal_size, 0)
@@ -63,20 +81,27 @@ def crop(img):
     return masked
 
 if __name__ == '__main__':
+
+    # grades = {
+    # "name": ["Mike", "Sherry", "Cindy", "John"],
+    # "math": [80, 75, 93, 86],
+    # "chinese": [63, 90, 85, 70]
+    # }
+    # df = ContourDF(grades)
+
     os.chdir("data")
     img_list = (glob.glob('*.jpg'))
-
     img_dict = {}
     for i in img_list:
-        img_dict[i.split(".")[0]] = cv2.imread(i)
+        if "fin_" in i:
+            print(i)
+            img_dict[i.split(".")[0]] = cv2.imread(i, cv2.IMREAD_UNCHANGED)
 
-    wbc = img_dict["wbc"]
-    show(crop(wbc), "cp")
+    ep = img_dict["fin_ep"]
+    hct = img_dict["fin_hct"]
+    wbc = img_dict["fin_wbc"]
 
-    # create transparent image
-    # maskRGBA = np.dstack((mask, mask, mask, erode))
-    # print(maskRGBA.shape)
-    # cv2.imwrite("Transparent.png", maskRGBA)
-    # Cv.show(maskRGBA, 'A')
+    df = img2dataframe(ep)
+    # print(df[["roundness"]])
 
     cv2.waitKey(0)
