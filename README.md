@@ -18,9 +18,9 @@ M:與上個commit有差異
 
 ## opencv commands
 
-img_gray = cv2.imread('image.jpg', cv2.IMREAD_GRAYSCALE)     %只讀灰階值
+img_gray = cv2.imread('image.jpg', cv2.IMREAD_GRAYSCALE)     #只讀灰階值
 
-cv2.namedWindow('My Image', cv2.WINDOW_NORMAL)               %讓圖片視窗可調整大小
+cv2.namedWindow('My Image', cv2.WINDOW_NORMAL)               #讓圖片視窗可調整大小
 
 ## instance function
 
@@ -34,5 +34,22 @@ def __init__(self):
 ## image properties
 
 * grayscale: 0(black)----255(white)
-
+* default opencv channel: BGR
 * shape(y, x, c)
+
+## useful plots
+
+line plot:
+
+```python
+hist = cv2.calcHist([img], [0], None, [256], [0, 256])
+plt.plot(hist)                              # "label = ..." is an optional param, then plt.legend()
+plt.show()
+```
+
+bar plot:
+
+```python
+plt.hist(img.ravel(), 256, [0, 256])        # ravel turn into 1d array
+plt.show()
+```

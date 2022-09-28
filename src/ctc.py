@@ -7,42 +7,73 @@ import util.opencv as cv
 # Input =======================================================================================
 os.chdir("data")
 img_list = (glob.glob('*.jpg'))
-kernal = np.ones((3,3), np.uint8)
+
+# Parameters ==================================================================================
 blur_kernal = (5, 5)
+SPLIT = 5
+CLIP_LIMIT = 4
+TILEGRIDSIZE = 8
 
 # Reading =====================================================================================
-img_dict = {} # dtype=uint8, shape=(9081, 9081, 3)
+img_dict = {}                                                                                       # dtype=uint8, shape=(9081, 9081, 3)
 for i in img_list:
-    img_dict[i.split(".")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE) # shape=(9081, 9081)
+    img_dict[i.split(".")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+
+clahe = cv2.createCLAHE(clipLimit= CLIP_LIMIT, tileGridSize= (TILEGRIDSIZE, TILEGRIDSIZE))
 
 # EpCam =======================================================================================
-ret,th_ep = cv.otsu_th(img_dict['epcam'], blur_kernal)
-erode_ep = cv2.erode(th_ep, kernal, iterations=3)
-dilate_ep = cv2.dilate(erode_ep, kernal, iterations=3)
+img = img_dict['epcam']
+# img = clahe.apply(img_dict['epcam'])
+# cv.show(img,'imf')
+ret, a = cv.otsu_th(img, blur_kernal)
+a = cv.erode_dilate(a)
+fin_ep = cv.crop(a)
+# cv.show(fin_ep, "fin_ep")
+# cv2.imwrite("fin_ep.jpg", fin_ep)
 
 print('ep: ',ret)
-cv2.imwrite("ep_bin.jpg", dilate_ep)
 
 # hoechest ====================================================================================
-ret,th_hoe = cv.otsu_th(img_dict['hcst'], blur_kernal)
-print('hoe: ',ret)
+hct = img_dict['hcst']
+a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(hct, SPLIT)]                               # list comprehension
 
-# CD45 ========================================================================================
-ret,th_45 = cv.otsu_th(img_dict['wbc'], blur_kernal)
-print('CD45: ',ret)
+for iter in np.ndindex((len(a), len(a[:]))):
+    img = a[iter[0]][iter[1]]
+    img = clahe.apply(img)
+    ret, img = cv.otsu_th(img, blur_kernal)
+    a[iter[0]][iter[1]] = cv.erode_dilate(img)
+
+    print("coordinate:", iter, ",threshold= ", ret)
+
+fin_hct = cv.crop(np.block(a))
+# cv.show(fin_hct, "fin_hct")
+# cv2.imwrite("fin_hct.jpg", fin_hct)
+
+# wbc =========================================================================================
+hct = img_dict['wbc']
+a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(hct, SPLIT)]
+
+for iter in np.ndindex((len(a), len(a[:]))):
+    img = a[iter[0]][iter[1]]
+    img = clahe.apply(img)
+    ret, img = cv.otsu_th(img, blur_kernal)
+    a[iter[0]][iter[1]] = cv.erode_dilate(img)
+
+    print("coordinate:", iter, ",threshold= ", ret)
+
+fin_wbc = cv.crop(np.block(a))
+# cv.show(fin_wbc, "fin_wbc")
+# cv2.imwrite("fin_wbc.jpg", fin_wbc)
 
 # =============================================================================================
-bgd = np.dstack((np.zeros_like(dilate_ep), np.zeros_like(dilate_ep), dilate_ep))
-cover = np.dstack((th_hoe, np.zeros_like(th_hoe), np.zeros_like(th_hoe)))
-merge = cv2.bitwise_or(bgd, cover, mask= dilate_ep)
+bgd = np.dstack((np.zeros_like(fin_ep), np.zeros_like(fin_ep), fin_ep))
+cover = np.dstack((hct, np.zeros_like(hct), np.zeros_like(hct)))
+merge = cv2.bitwise_or(bgd, cover, mask= fin_ep)
 
-cv2.imwrite("hoe_th.jpg", th_hoe)
+# merge = np.dstack((hct, fin_ep, fin_ep))
 
-# cv.show(img_dict['wbc'], 'orig')
-# cv.show(th_45, 'th')
-cv2.imwrite("wbc_th.jpg", th_45)
-
-# cv.show(merge, 'merge')
+cv.show(merge, 'merge')
 cv2.imwrite("merge.jpg", merge)
 
 cv2.waitKey(0)
+cv2.destroyAllWindows()
