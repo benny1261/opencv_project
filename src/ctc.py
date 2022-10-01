@@ -50,8 +50,8 @@ fin_hct = cv.crop(np.block(a))
 # cv2.imwrite("fin_hct.jpg", fin_hct)
 
 # wbc =========================================================================================
-hct = img_dict['wbc']
-a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(hct, SPLIT)]
+wbc = img_dict['wbc']
+a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(wbc, SPLIT)]
 
 for iter in np.ndindex((len(a), len(a[:]))):
     img = a[iter[0]][iter[1]]

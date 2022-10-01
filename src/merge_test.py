@@ -21,16 +21,11 @@ bg = np.dstack((np.zeros_like(ep), np.zeros_like(ep), np.zeros_like(ep)))
 epbg = np.dstack((ep, ep, ep))
 
 canny = cv2.Canny(ep, 50, 100)
-cv2.imwrite("canny.jpg", canny)
+# cv2.imwrite("canny.jpg", canny)
 contours, hierarchy = cv2.findContours(canny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 # print(type(contours[1]))
 # print(len(contours))
 # cv2.drawContours(epbg, contours, -1, (0,255,0), 1)
-# cv2.imwrite("wtf.jpg", epbg)
-
-# contours, hierarchy = cv2.findContours(ep, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-# cv2.drawContours(epbg, contours, -1, (0,255,0), 1)
-# cv2.imwrite("wtf.jpg", epbg)
 
 # for _ in contours:
 #     (cx, cy), (a, b), angle = cv2.fitEllipse(contours[_])
@@ -42,14 +37,14 @@ contours, hierarchy = cv2.findContours(canny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPRO
 #     cv2.circle(epbg, (cx, cy), radius, (0,0,255), 2)
 # cv2.imwrite("wtf2.jpg", epbg)
 
-for _ in contours:      # len=125
-    M = cv2.moments(_)
-    cx = int(M["m10"] / M["m00"])
-    cy = int(M["m01"] / M["m00"])
-    cv2.circle(epbg, (cx, cy), 30, (0,0,255), 2)
-cv2.imwrite("wtf2.jpg", epbg)
 
-print(contours)
+for _ in range(len(contours)):
+    M = cv2.moments(contours[_])
+    cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
+    cv2.circle(epbg, (cx, cy), 30, (0,0,255), 2)
+    cv2.putText(epbg, f'{_}', (cx-10, cy-40), fontFace= cv2.FONT_HERSHEY_TRIPLEX, fontScale= 1,color= (0,0,255), thickness= 2)
+
+cv2.imwrite("epcir.jpg", epbg)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
