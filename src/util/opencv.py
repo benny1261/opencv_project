@@ -36,27 +36,31 @@ class Cv_api:
         print(self.app.frames['export'].checkbtn['gray'].get())
 
 
-def img2dataframe(ep_img, hct_img, wbc_img, marks = True, beta = 0.3):
+def img2dataframe(ep_img, hct_img, wbc_img, marks= True, transparent= False, beta = 0.3):
     '''find contours from epcam img, calculate properties of each one and store in dataframe, also optional marks on exported image, parameter img should be grayscale'''
+    EPCAM_MARK = (0,0,255)
+    NONEPCAM_MARK = (18,153,255)
+    MARKFONT = cv2.FONT_HERSHEY_TRIPLEX
+    MARKCOORDINATE = (-30, -40)
+    
     RGBep = np.dstack((ep_img, ep_img, ep_img))                                         # white
     RGBhct = np.dstack((hct_img, np.zeros_like(hct_img), np.zeros_like(hct_img)))       # blue
     RGBwbc = np.dstack((np.zeros_like(wbc_img), wbc_img, np.zeros_like(wbc_img)))       # green
+    if transparent:
+        bg = np.dstack((np.zeros_like(ep_img), np.zeros_like(ep_img), np.zeros_like(ep_img)))
 
     contours, _ = cv2.findContours(cv2.Canny(ep_img, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     hct_contours, _ = cv2.findContours(cv2.Canny(hct_img, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     wbc_contours, _ = cv2.findContours(cv2.Canny(wbc_img, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
     # make merge image of epcam, hoechst and wbc
-    mask = cv2.bitwise_and(cv2.bitwise_and(ep_img, cv2.bitwise_not(hct_img)), cv2.bitwise_not(wbc_img))     # mask of region only epcam
     hctwbc_mix = cv2.add(RGBhct, RGBwbc)
     merge = cv2.addWeighted(RGBep, 1-beta, hctwbc_mix, beta, gamma= 0)
-    blk = cv2.bitwise_and(merge, merge, mask= cv2.bitwise_not(mask))                    # make region in mask black(clean)
-    final = cv2.add(blk, np.dstack((mask, mask, mask)))                                 # make region in mask white
 
     # add contours in only where epcam signal are
     mask_withcontour = cv2.drawContours(RGBep, wbc_contours, -1, (0, 255, 0), thickness= 1)
     mask_withcontour = cv2.drawContours(mask_withcontour, hct_contours, -1, (255, 0, 0), thickness= 1)
-    blk2 = cv2.bitwise_and(final, final, mask= cv2.bitwise_not(ep_img))                     # make region in mask black(clean)
+    blk2 = cv2.bitwise_and(merge, merge, mask= cv2.bitwise_not(ep_img))                         # make region in mask black(clean)
     final2 = cv2.add(blk2, cv2.bitwise_and(mask_withcontour, mask_withcontour, mask= ep_img))   # make region in mask white
  
     center = []
@@ -89,12 +93,25 @@ def img2dataframe(ep_img, hct_img, wbc_img, marks = True, beta = 0.3):
 
         if marks:
             if ((hct[_]) & (not wbc[_])):
-                cv2.circle(final2, (cx, cy), 30, (0,0,255), 2)
-                cv2.putText(final2, f'{_},e={round(e,3)}', (cx-30, cy-40), fontFace= cv2.FONT_HERSHEY_TRIPLEX, fontScale= 1,color= (0,0,255), thickness= 2)
+                cv2.circle(final2, center[_], 30, EPCAM_MARK, 2)
+                cv2.putText(final2, f'{_},e={round(e,3)}', (cx+MARKCOORDINATE[0], cy+MARKCOORDINATE[1]), fontFace= MARKFONT, fontScale= 1,color= EPCAM_MARK, thickness= 2)
             else:
-                cv2.circle(final2, (cx, cy), 30, (18,153,255), 2)
-                cv2.putText(final2, f'{_},e={round(e,3)}', (cx-30, cy-40), fontFace= cv2.FONT_HERSHEY_TRIPLEX, fontScale= 1,color= (18,153,255), thickness= 2)
+                cv2.circle(final2, center[_], 30, NONEPCAM_MARK, 2)
+                cv2.putText(final2, f'{_},e={round(e,3)}', (cx+MARKCOORDINATE[0], cy+MARKCOORDINATE[1]), fontFace= MARKFONT, fontScale= 1,color= NONEPCAM_MARK, thickness= 2)
+        
+        if transparent:
+            if ((hct[_]) & (not wbc[_])):
+                cv2.circle(bg, center[_], 30, EPCAM_MARK, 2)
+                cv2.putText(bg, f'{_},e={round(e,3)}', (cx+MARKCOORDINATE[0], cy+MARKCOORDINATE[1]), fontFace= MARKFONT, fontScale= 1,color= EPCAM_MARK, thickness= 2)
+            else:
+                cv2.circle(bg, center[_], 30, NONEPCAM_MARK, 2)
+                cv2.putText(bg, f'{_},e={round(e,3)}', (cx+MARKCOORDINATE[0], cy+MARKCOORDINATE[1]), fontFace= MARKFONT, fontScale= 1,color= NONEPCAM_MARK, thickness= 2)
 
+    if transparent:
+        markgray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
+        _, markmask = cv2.threshold(markgray, 1, 255, cv2.THRESH_BINARY)
+        bgra = np.dstack((bg, markmask))
+        cv2.imwrite("mark.png", bgra)
     cv2.imwrite("final.jpg", final2)
 
     data = {
@@ -144,34 +161,8 @@ if __name__ == '__main__':
     hct = img_dict["fin_hct"]
     wbc = img_dict["fin_wbc"]
 
-    df = img2dataframe(ep, hct, wbc, marks= True)
+    df = img2dataframe(ep, hct, wbc, transparent= True)
     with pd.ExcelWriter("x.xlsx") as writer:
         df.to_excel(writer)
-
-#------------------------------------------------------
-    # hct_contours, _ = cv2.findContours(cv2.Canny(hct, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    # wbc_contours, _ = cv2.findContours(cv2.Canny(wbc, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    # mask = cv2.bitwise_and(cv2.bitwise_and(ep, cv2.bitwise_not(hct)), cv2.bitwise_not(wbc))
-    
-    # BETA = 0.3
-    # RGBep = np.dstack((ep, ep, ep))                                     # white
-    # RGBhct = np.dstack((hct, np.zeros_like(hct), np.zeros_like(hct)))   # blue
-    # RGBwbc = np.dstack((np.zeros_like(wbc), wbc, np.zeros_like(wbc)))   # green
-    
-    # hw = cv2.add(RGBhct, RGBwbc)
-
-    # merge = cv2.addWeighted(RGBep, 1-BETA, hw, BETA, gamma= 0)
-    # blk = cv2.bitwise_and(merge, merge, mask= cv2.bitwise_not(mask))
-    # final = cv2.add(blk, np.dstack((mask, mask, mask)))
-
-    # mask_withcontour = cv2.drawContours(RGBep, wbc_contours, -1, (0, 255, 0), thickness= 1)
-    # mask_withcontour = cv2.drawContours(mask_withcontour, hct_contours, -1, (255, 0, 0), thickness= 1)
-    # blk2 = cv2.bitwise_and(final, final, mask= cv2.bitwise_not(ep))
-    # final2 = cv2.add(blk2, cv2.bitwise_and(mask_withcontour, mask_withcontour, mask= ep))
-    
-    # cv2.imwrite("test2.jpg", final2)
-
-    # trans = np.dstack((hct, np.zeros_like(hct), np.zeros_like(hct), np.ones_like(hct)*NONTRANSPARENCY))
-    # cv2.imwrite("test.png", trans)
 
     cv2.waitKey(0)
