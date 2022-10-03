@@ -15,7 +15,7 @@ SPLIT = 5
 CLIP_LIMIT = 4
 TILEGRIDSIZE = 8
 MARK = True
-TRANS = False
+TRANS = True
 
 # Reading =====================================================================================
 img_dict = {}                                                                                       # dtype=uint8, shape=(9081, 9081, 3)
@@ -26,15 +26,16 @@ clahe = cv2.createCLAHE(clipLimit= CLIP_LIMIT, tileGridSize= (TILEGRIDSIZE, TILE
 
 # EpCam preprocessing =========================================================================
 ep = img_dict['epcam']
-# cv.show(img,'imf')
-ret, a = cv.otsu_th(ep, blur_kernal)
-a = cv.erode_dilate(a)
+img = clahe.apply(ep)
+ret, a = cv.otsu_th(img, blur_kernal)                                       # use otsu's threshold but use original image for thresholding
+_, th = cv2.threshold(ep, ret, 255, cv2.THRESH_BINARY)
+a = cv.erode_dilate(th)
 fin_ep = cv.crop(a)
-# cv.show(fin_ep, "fin_ep")
-# cv2.imwrite("fin_ep.jpg", fin_ep)
-
-print('ep>>>')
+print('epcam>>>')
 print(ret)
+
+# cv.show(fin_ep, "fin_ep")
+cv2.imwrite("fin_ep.jpg", fin_ep)
 
 # hoechest preprocessing ======================================================================
 hct = img_dict['hcst']
@@ -51,7 +52,7 @@ for iter in np.ndindex((len(a), len(a[:]))):
 
 fin_hct = cv.crop(np.block(a))
 # cv.show(fin_hct, "fin_hct")
-# cv2.imwrite("fin_hct.jpg", fin_hct)
+cv2.imwrite("fin_hct.jpg", fin_hct)
 
 # wbc preprocessing ===========================================================================
 wbc = img_dict['wbc']
@@ -68,7 +69,7 @@ for iter in np.ndindex((len(a), len(a[:]))):
 
 fin_wbc = cv.crop(np.block(a))
 # cv.show(fin_wbc, "fin_wbc")
-# cv2.imwrite("fin_wbc.jpg", fin_wbc)
+cv2.imwrite("fin_wbc.jpg", fin_wbc)
 
 # provide dataframe and export image ==========================================================
 df = cv.img2dataframe(fin_ep, fin_hct, fin_wbc, marks= MARK, transparent= TRANS)
