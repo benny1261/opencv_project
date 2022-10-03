@@ -150,7 +150,7 @@ def crop(img):
 if __name__ == '__main__':
 
     os.chdir("data")
-    img_list = (glob.glob('*.jpg'))
+    img_list = glob.glob('*.jpg')
     img_dict = {}
     for i in img_list:
         if "fin_" in i:
