@@ -1,6 +1,7 @@
 import os
 import cv2
 import glob
+from cv2 import MARKER_CROSS
 import numpy as np
 import util.opencv as cv
 import pandas as pd
@@ -16,6 +17,7 @@ CLIP_LIMIT = 4
 TILEGRIDSIZE = 8
 MARK = True
 TRANS = True
+BETA = 0.3
 
 # Reading =====================================================================================
 img_dict = {}                                                                                       # dtype=uint8, shape=(9081, 9081, 3)
@@ -72,7 +74,9 @@ fin_wbc = cv.crop(np.block(a))
 cv2.imwrite("fin_wbc.jpg", fin_wbc)
 
 # provide dataframe and export image ==========================================================
-df = cv.img2dataframe(fin_ep, fin_hct, fin_wbc, marks= MARK, transparent= TRANS)
+imgs = (fin_ep, fin_hct, fin_wbc)
+df = cv.img2dataframe(*imgs)                                            # *operater unpacks iterable and pass as positional arguments
+cv.image_postprocessing(*imgs, df, marks= MARK, transparent= TRANS, beta= BETA)
 with pd.ExcelWriter("dataframe.xlsx") as writer:
     df.to_excel(writer)
 
