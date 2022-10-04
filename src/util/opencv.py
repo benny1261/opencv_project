@@ -82,6 +82,7 @@ also optional marks on exported image, parameter img should be grayscale\n
     }
     return pd.DataFrame(data)
 
+
 def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent= False, beta = 0.3):
     '''mark -> add mark on merge image\n
     transparent -> only mark no background'''
@@ -113,25 +114,20 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
     for _ in df.index:
         center = df['center'][_]
         e = df['roundness'][_]
+        if (df['hct'][_]) & (not df['wbc'][_]):
+            color = CTC_MARK
+        else:
+            color = NONCTC_MARK
+
         if marks:
-            if (df['hct'][_]) & (not df['wbc'][_]):
-                color = CTC_MARK
-            else:
-                color = NONCTC_MARK
             cv2.circle(final2, center, 30, color, 2)
             cv2.putText(final2, f'{_},e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 2)
-            
         if transparent:
-            if (df['hct'][_]) & (not df['wbc'][_]):
-                color = CTC_MARK
-            else:
-                color = NONCTC_MARK
             cv2.circle(bg, center, 30, color, 2)
             cv2.putText(bg, f'{_},e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 2)
     
-
     if transparent:
         markgray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
         _, markmask = cv2.threshold(markgray, 1, 255, cv2.THRESH_BINARY)
@@ -139,15 +135,18 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
         cv2.imwrite("mark.png", bgra)
     cv2.imwrite("final.jpg", final2)
 
+
 def show(img, name):
 
     cv2.namedWindow(name, cv2.WINDOW_NORMAL)
     cv2.imshow(name, img)
 
+
 def otsu_th(img, kernal_size):
     blur = cv2.GaussianBlur(img, kernal_size, 0)
     ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     return ret, th
+
 
 def erode_dilate(img, kernal_size= 3, iterations= 2):
     '''kernal size must be odd and >= 3'''
@@ -155,6 +154,7 @@ def erode_dilate(img, kernal_size= 3, iterations= 2):
     _ = cv2.erode(img, kernal, iterations= iterations)
     _ = cv2.dilate(_, kernal, iterations= iterations)
     return _
+
 
 def crop(img):
     block = int(np.floor(img.shape[0]/5))
