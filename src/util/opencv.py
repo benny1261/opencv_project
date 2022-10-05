@@ -41,11 +41,15 @@ def img2dataframe(ep_img, hct_img, wbc_img):
 also optional marks on exported image, parameter img should be grayscale\n
 @ret pandas dataframe'''
     contours, _ = cv2.findContours(cv2.Canny(ep_img, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
- 
+    ROI = 60
+    HCT_THRESHOLD = 20                                                                  # pixels of epcam-hct intersection
+    WBC_THRESHOLD = 0.5                                                                 # ratio, epcam-wbc intersection/epcam
+    # cellsize = 12^2~25^2
     center = []
     roundness = []
     hct = []
     wbc = []
+    wbc_sharpness = []                                                                  # lower means more blur
 
     for _ in range(len(contours)):                                                      # needs index so use _ in range(len())
         M = cv2.moments(contours[_])
@@ -56,20 +60,25 @@ also optional marks on exported image, parameter img should be grayscale\n
 
             center.append((cx, cy))         # add center to df, notice (X,Y)
             e = 4*math.pi*cv2.contourArea(contours[_])/cv2.arcLength(contours[_], closed= True)**2
-            roundness.append(e)             # add roundness to df
+            roundness.append(e)                                                         # add roundness to df
 
             # detection of intersection in ROI
             x, y, w, h = cv2.boundingRect(contours[_])
             eproi = ep_img[y:y+h, x:x+w]
             hctroi = hct_img[y:y+h, x:x+w]
             wbcroi = wbc_img[y:y+h, x:x+w]
+            fuzzyroi = wbc_img[cy-int(ROI/2):cy+int(ROI/2), cx-int(ROI/2):cx+int(ROI/2)]        # check if the ROI is too fuzzy
+            howblur = cv2.Laplacian(fuzzyroi, cv2.CV_64F).var()
+            wbc_sharpness.append(howblur)
+            # print(_, howblur)
+            
             intersection_1 = cv2.bitwise_and(eproi, hctroi, mask = eproi)
             intersection_2 = cv2.bitwise_and(eproi, wbcroi, mask = eproi)
-            if np.count_nonzero(intersection_1) >= 5:
+            if np.count_nonzero(intersection_1) >= HCT_THRESHOLD:
                 hct.append(True)
             else:
                 hct.append(False)
-            if np.count_nonzero(intersection_2) >= 30:
+            if np.count_nonzero(intersection_2)/np.count_nonzero(eproi) >= WBC_THRESHOLD:
                 wbc.append(True)
             else:
                 wbc.append(False)
@@ -78,7 +87,8 @@ also optional marks on exported image, parameter img should be grayscale\n
         "center":center,
         "roundness":roundness,
         "hct":hct,
-        "wbc":wbc
+        "wbc":wbc,
+        "wbc_sharpness":wbc_sharpness
     }
     return pd.DataFrame(data)
 
@@ -86,9 +96,13 @@ also optional marks on exported image, parameter img should be grayscale\n
 def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent= False, beta = 0.3):
     '''mark -> add mark on merge image\n
     transparent -> only mark no background'''
+    SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc
+    ROUNDNESS_THRESHOLD = 0.5
+
     CTC_MARK = (0,0,255)
     NONCTC_MARK = (18,153,255)
     LOWROUNDNESS_MARK = (221, 160, 221)
+    BLUR_MARK = (250, 51, 153)
     MARKFONT = cv2.FONT_HERSHEY_TRIPLEX
     MARKCOORDINATE = (-30, -45)         # (x, y)
     
@@ -105,14 +119,17 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
     onlyep_mask = cv2.bitwise_and(ep_img, cv2.bitwise_not(intersection))
 
     # replace non intersection epcam area by pure white
-    blk = cv2.bitwise_and(merge, merge, mask= cv2.bitwise_not(onlyep_mask))                 # make region in mask black(clean)
-    final = cv2.add(blk, np.dstack((onlyep_mask, onlyep_mask, onlyep_mask)))                # make region in mask white
+    blk = cv2.bitwise_and(merge, merge, mask= cv2.bitwise_not(onlyep_mask))             # make region in mask black(clean)
+    final = cv2.add(blk, np.dstack((onlyep_mask, onlyep_mask, onlyep_mask)))            # make region in mask white
 
     for _ in df.index:
         center = df['center'][_]
         e = df['roundness'][_]
-        if (df['hct'][_]) & (not df['wbc'][_]):
-            if e < 0.6:
+        sharpness = df['wbc_sharpness'][_]
+        if sharpness < SHARPNESS_THRESHOLD:
+            color = BLUR_MARK
+        elif (df['hct'][_]) & (not df['wbc'][_]):
+            if e < ROUNDNESS_THRESHOLD:
                 color = LOWROUNDNESS_MARK
             else: color = CTC_MARK
         else:

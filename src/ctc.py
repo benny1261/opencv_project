@@ -18,7 +18,7 @@ CLIP_LIMIT = 4
 TILEGRIDSIZE = 8
 MARK = True
 TRANS = True
-BETA = 0.3
+BETA = 0.4
 
 # Reading =====================================================================================
 img_dict = {}                                                                                       # dtype=uint8, shape=(9081, 9081, 3)
