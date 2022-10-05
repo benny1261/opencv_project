@@ -53,3 +53,13 @@ bar plot:
 plt.hist(img.ravel(), 256, [0, 256])        # ravel turn into 1d array
 plt.show()
 ```
+
+## Roundness detection
+
+e = 4pi*A/P^2
+
+## Future Works:
+
+* read method(batches, filename)
+* variation in epcam pre-processing
+* GUI
