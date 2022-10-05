@@ -1,7 +1,6 @@
 import os
 import cv2
 import glob
-from cv2 import MARKER_CROSS
 import numpy as np
 import util.opencv as cv
 import pandas as pd
@@ -17,7 +16,7 @@ CLIP_LIMIT = 4
 TILEGRIDSIZE = 8
 MARK = True
 TRANS = True
-BETA = 0.3
+BETA = 0.4
 
 # Reading =====================================================================================
 img_dict = {}                                                                                       # dtype=uint8, shape=(9081, 9081, 3)
