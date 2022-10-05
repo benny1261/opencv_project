@@ -60,8 +60,6 @@ e = 4pi*A/P^2
 
 ## Future Works:
 
-* change contour in epcam to colors
-* delete or ignore low roundness signal
 * read method(batches, filename)
 * variation in epcam pre-processing
 * GUI

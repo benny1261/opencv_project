@@ -88,6 +88,7 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
     transparent -> only mark no background'''
     CTC_MARK = (0,0,255)
     NONCTC_MARK = (18,153,255)
+    LOWROUNDNESS_MARK = (221, 160, 221)
     MARKFONT = cv2.FONT_HERSHEY_TRIPLEX
     MARKCOORDINATE = (-30, -40)
     
@@ -111,7 +112,9 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
         center = df['center'][_]
         e = df['roundness'][_]
         if (df['hct'][_]) & (not df['wbc'][_]):
-            color = CTC_MARK
+            if e < 0.6:
+                color = LOWROUNDNESS_MARK
+            else: color = CTC_MARK
         else:
             color = NONCTC_MARK
 
