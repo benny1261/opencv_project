@@ -54,7 +54,7 @@ also optional marks on exported image, parameter img should be grayscale\n
         # else:
         #     cx, cy = int(M["m10"] / (M["m00"]+1e-5)), int(M["m01"] / (M["m00"]+1e-5)) # or add 1e-5 to avoid division by zero
 
-            center.append((cx, cy))         # add center to df
+            center.append((cx, cy))         # add center to df, notice (X,Y)
             e = 4*math.pi*cv2.contourArea(contours[_])/cv2.arcLength(contours[_], closed= True)**2
             roundness.append(e)             # add roundness to df
 
@@ -90,7 +90,7 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
     NONCTC_MARK = (18,153,255)
     LOWROUNDNESS_MARK = (221, 160, 221)
     MARKFONT = cv2.FONT_HERSHEY_TRIPLEX
-    MARKCOORDINATE = (-30, -40)
+    MARKCOORDINATE = (-30, -45)         # (x, y)
     
     RGBep = np.dstack((ep_img, ep_img, ep_img))                                         # white
     RGBhct = np.dstack((hct_img, np.zeros_like(hct_img), np.zeros_like(hct_img)))       # blue
@@ -120,12 +120,16 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
 
         if marks:
             cv2.circle(final, center, 30, color, 2)
-            cv2.putText(final, f'{_},e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
-            fontFace= MARKFONT, fontScale= 1,color= color, thickness= 2)
+            cv2.putText(final, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
+            fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
+            cv2.putText(final, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
+            fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
         if transparent:
             cv2.circle(bg, center, 30, color, 2)
-            cv2.putText(bg, f'{_},e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
-            fontFace= MARKFONT, fontScale= 1,color= color, thickness= 2)
+            cv2.putText(bg, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
+            fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
+            cv2.putText(bg, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
+            fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
     
     if transparent:
         markgray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)

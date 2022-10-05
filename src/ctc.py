@@ -1,7 +1,6 @@
 import os
 import cv2
 import glob
-from cv2 import MARKER_CROSS
 import numpy as np
 import util.opencv as cv
 import pandas as pd
