@@ -4,7 +4,9 @@ import glob
 import numpy as np
 import util.opencv as cv
 import pandas as pd
+import time
 
+start_time = time.time()
 # Input =======================================================================================
 os.chdir("data")
 img_list = glob.glob('*.jpg')
@@ -80,4 +82,6 @@ with pd.ExcelWriter("dataframe.xlsx") as writer:
     df.to_excel(writer)
 
 cv2.waitKey(0)
-cv2.destroyAllWindows()
+end_time = time.time()
+print("++++++++++++++++++++++++++++++++++++++++++")
+print("elapsed time:", end_time-start_time,"seconds")
