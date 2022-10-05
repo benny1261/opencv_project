@@ -97,19 +97,15 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
     if transparent:
         bg = np.dstack((np.zeros_like(ep_img), np.zeros_like(ep_img), np.zeros_like(ep_img)))
 
-    # contours, _ = cv2.findContours(cv2.Canny(ep_img, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)-----------------------------
-    hct_contours, _ = cv2.findContours(cv2.Canny(hct_img, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    wbc_contours, _ = cv2.findContours(cv2.Canny(wbc_img, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
     # make merge image of epcam, hoechst and wbc
     hctwbc_mix = cv2.add(RGBhct, RGBwbc)
     merge = cv2.addWeighted(RGBep, 1-beta, hctwbc_mix, beta, gamma= 0)
+    intersection = cv2.bitwise_and(ep_img, cv2.bitwise_or(hct_img, wbc_img))
+    onlyep_mask = cv2.bitwise_and(ep_img, cv2.bitwise_not(intersection))
 
-    # add contours in only where epcam signal are
-    mask_withcontour = cv2.drawContours(RGBep, wbc_contours, -1, (0, 255, 0), thickness= 1)
-    mask_withcontour = cv2.drawContours(mask_withcontour, hct_contours, -1, (255, 0, 0), thickness= 1)
-    blk2 = cv2.bitwise_and(merge, merge, mask= cv2.bitwise_not(ep_img))                         # make region in mask black(clean)
-    final2 = cv2.add(blk2, cv2.bitwise_and(mask_withcontour, mask_withcontour, mask= ep_img))   # make region in mask white
+    # replace non intersection epcam area by pure white
+    blk = cv2.bitwise_and(merge, merge, mask= cv2.bitwise_not(onlyep_mask))                 # make region in mask black(clean)
+    final = cv2.add(blk, np.dstack((onlyep_mask, onlyep_mask, onlyep_mask)))                # make region in mask white
 
     for _ in df.index:
         center = df['center'][_]
@@ -120,8 +116,8 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
             color = NONCTC_MARK
 
         if marks:
-            cv2.circle(final2, center, 30, color, 2)
-            cv2.putText(final2, f'{_},e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
+            cv2.circle(final, center, 30, color, 2)
+            cv2.putText(final, f'{_},e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 2)
         if transparent:
             cv2.circle(bg, center, 30, color, 2)
@@ -133,7 +129,7 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
         _, markmask = cv2.threshold(markgray, 1, 255, cv2.THRESH_BINARY)
         bgra = np.dstack((bg, markmask))
         cv2.imwrite("mark.png", bgra)
-    cv2.imwrite("final.jpg", final2)
+    cv2.imwrite("final.jpg", final)
 
 
 def show(img, name):
