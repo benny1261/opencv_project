@@ -21,67 +21,70 @@ TRANS = True
 BETA = 0.4
 
 # Reading =====================================================================================
-img_dict = {}                                                                                       # dtype=uint8, shape=(9081, 9081, 3)
+hct_dict = {}                                                                               # dtype=uint8, shape=(9081, 9081, 3)
+epcam_dict = {}
+wbc_dict = {}
+
 for i in img_list:
-    img_dict[i.split(".")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+    if '_0.jpg' in i:
+        hct_dict[i.split("_0.")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+    elif '_1.jpg' in i:
+        epcam_dict[i.split("_1.")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+    elif '_3.jpg' in i:
+        wbc_dict[i.split("_3.")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+
+if (not hct_dict) or (not epcam_dict) or (not wbc_dict):
+    raise IOError(FileNotFoundError, "insufficient required image")
+elif not (len(hct_dict) == len(epcam_dict) == len(wbc_dict)):
+    raise IOError("number of different fluorescent images are not equal")
 
 clahe = cv2.createCLAHE(clipLimit= CLIP_LIMIT, tileGridSize= (TILEGRIDSIZE, TILEGRIDSIZE))
 
-# EpCam preprocessing =========================================================================
-ep = img_dict['epcam']
-img = clahe.apply(ep)
-ret, a = cv.otsu_th(img, blur_kernal)                                       # use otsu's threshold but use original image for thresholding
-_, th = cv2.threshold(ep, ret, 255, cv2.THRESH_BINARY)
-a = cv.erode_dilate(th)
-fin_ep = cv.crop(a)
-print('epcam>>>')
-print(ret)
+for key in epcam_dict.keys():                                                   # key is identical for same set of fluorescent
+    print(key+">>>>>>>>>>>\npreprocessing")
+    # EpCam preprocessing =====================================================================
+    ep = epcam_dict[key]
+    img = clahe.apply(ep)
+    ret, a = cv.otsu_th(img, blur_kernal)                                       # use otsu's threshold but use original image for thresholding
+    _, th = cv2.threshold(ep, ret, 255, cv2.THRESH_BINARY)
+    a = cv.erode_dilate(th)
+    fin_ep = cv.crop(a)
+    cv2.imwrite("fin_ep.jpg", fin_ep)
 
-# cv.show(fin_ep, "fin_ep")
-cv2.imwrite("fin_ep.jpg", fin_ep)
+    # hoechest preprocessing ==================================================================
+    hct = hct_dict[key]
+    a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(hct, SPLIT)]       # list comprehension
 
-# hoechest preprocessing ======================================================================
-hct = img_dict['hcst']
-a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(hct, SPLIT)]                               # list comprehension
-print("hoechst>>>")
+    for iter in np.ndindex((len(a), len(a[:]))):
+        img = a[iter[0]][iter[1]]
+        img = clahe.apply(img)
+        ret, img = cv.otsu_th(img, blur_kernal)
+        a[iter[0]][iter[1]] = cv.erode_dilate(img)
+    fin_hct = cv.crop(np.block(a))
+    cv2.imwrite("fin_hct.jpg", fin_hct)
 
-for iter in np.ndindex((len(a), len(a[:]))):
-    img = a[iter[0]][iter[1]]
-    img = clahe.apply(img)
-    ret, img = cv.otsu_th(img, blur_kernal)
-    a[iter[0]][iter[1]] = cv.erode_dilate(img)
+    # wbc preprocessing =======================================================================
+    wbc = wbc_dict[key]
+    a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(wbc, SPLIT)]
 
-    print("coordinate:", iter, ",threshold= ", ret)
+    for iter in np.ndindex((len(a), len(a[:]))):
+        img = a[iter[0]][iter[1]]
+        img = clahe.apply(img)
+        ret, img = cv.otsu_th(img, blur_kernal)
+        a[iter[0]][iter[1]] = cv.erode_dilate(img)
+    fin_wbc = cv.crop(np.block(a))
+    cv2.imwrite("fin_wbc.jpg", fin_wbc)
 
-fin_hct = cv.crop(np.block(a))
-# cv.show(fin_hct, "fin_hct")
-cv2.imwrite("fin_hct.jpg", fin_hct)
+    # provide dataframe and export image ======================================================
+    print("creating dataframe and identifying")
+    imgs = (fin_ep, fin_hct, fin_wbc)
+    df = cv.img2dataframe(*imgs)                                        # *operater unpacks iterable and pass as positional arguments
+    cv.image_postprocessing(*imgs, df, marks= MARK, transparent= TRANS, beta= BETA)
+    with pd.ExcelWriter(key+".xlsx") as writer:
+        df.to_excel(writer)
 
-# wbc preprocessing ===========================================================================
-wbc = img_dict['wbc']
-a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(wbc, SPLIT)]
-print("wbc>>>")
-
-for iter in np.ndindex((len(a), len(a[:]))):
-    img = a[iter[0]][iter[1]]
-    img = clahe.apply(img)
-    ret, img = cv.otsu_th(img, blur_kernal)
-    a[iter[0]][iter[1]] = cv.erode_dilate(img)
-
-    print("coordinate:", iter, ",threshold= ", ret)
-
-fin_wbc = cv.crop(np.block(a))
-# cv.show(fin_wbc, "fin_wbc")
-cv2.imwrite("fin_wbc.jpg", fin_wbc)
-
-# provide dataframe and export image ==========================================================
-imgs = (fin_ep, fin_hct, fin_wbc)
-df = cv.img2dataframe(*imgs)                                            # *operater unpacks iterable and pass as positional arguments
-cv.image_postprocessing(*imgs, df, marks= MARK, transparent= TRANS, beta= BETA)
-with pd.ExcelWriter("dataframe.xlsx") as writer:
-    df.to_excel(writer)
-
-cv2.waitKey(0)
 end_time = time.time()
 print("++++++++++++++++++++++++++++++++++++++++++")
 print("elapsed time:", end_time-start_time,"seconds")
+
+cv2.waitKey(0)
