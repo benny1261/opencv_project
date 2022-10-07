@@ -58,9 +58,7 @@ plt.show()
 
 e = 4pi*A/P^2
 
-## Future Works:
+## Future Works
 
-* add timing
-* read method(batches, filename)
 * variation in epcam pre-processing
 * GUI
