@@ -28,7 +28,6 @@ epcam_dict = {}
 wbc_dict = {}
 
 for i in img_list:
-    print(i)
     if '_0.jpg' in i:
         hct_dict[i.split("_0.")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
     elif '_1.jpg' in i:
@@ -79,9 +78,10 @@ for key in epcam_dict.keys():                                                   
     cv2.imwrite(os.path.join(DATADIRECTORY,"fin_wbc.jpg"), fin_wbc)
 
     # provide dataframe and export image ======================================================
-    print("creating dataframe and identifying")
+    print("creating dataframe")
     imgs = (fin_ep, fin_hct, fin_wbc)
     df = cv.img2dataframe(*imgs)                                        # *operater unpacks iterable and pass as positional arguments
+    print("post-processing")
     final, mark = cv.image_postprocessing(*imgs, df, marks= MARK, transparent=TRANS, beta= BETA)
     cv2.imwrite(key+"_final.jpg", final)
     if TRANS:

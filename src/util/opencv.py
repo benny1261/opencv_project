@@ -1,4 +1,3 @@
-from asyncio.windows_events import NULL
 import math
 import glob
 import cv2
@@ -37,7 +36,7 @@ class Cv_api:
         print(self.app.frames['export'].checkbtn['gray'].get())
 
 
-def img2dataframe(ep_img, hct_img, wbc_img):
+def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray):
     '''find contours from epcam img, calculate properties of each one and store in dataframe, 
 also optional marks on exported image, parameter img should be grayscale\n
 @ret pandas dataframe'''
@@ -94,7 +93,7 @@ also optional marks on exported image, parameter img should be grayscale\n
     return pd.DataFrame(data)
 
 
-def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent= False, beta = 0.3):
+def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, marks= True, transparent= False, beta = 0.3):
     '''mark -> add mark on merge image\n
     transparent -> only mark no background'''
     SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc
@@ -157,19 +156,19 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
     return final, None
 
 
-def show(img, name):
+def show(img: np.ndarray, name: str):
 
     cv2.namedWindow(name, cv2.WINDOW_NORMAL)
     cv2.imshow(name, img)
 
 
-def otsu_th(img, kernal_size):
+def otsu_th(img: np.ndarray, kernal_size: tuple):
     blur = cv2.GaussianBlur(img, kernal_size, 0)
     ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     return ret, th
 
 
-def erode_dilate(img, kernal_size= 3, iterations= 2):
+def erode_dilate(img: np.ndarray, kernal_size= 3, iterations= 2):
     '''kernal size must be odd and >= 3'''
     kernal = np.ones((kernal_size,kernal_size), np.uint8)
     _ = cv2.erode(img, kernal, iterations= iterations)
@@ -177,7 +176,7 @@ def erode_dilate(img, kernal_size= 3, iterations= 2):
     return _
 
 
-def crop(img):
+def crop(img: np.ndarray):
     block = int(np.floor(img.shape[0]/5))
     radius = int(block*1.5*math.sqrt(2))
     center = int(np.floor(img.shape[0]/2))
