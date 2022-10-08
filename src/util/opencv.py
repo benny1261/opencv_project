@@ -1,3 +1,4 @@
+from asyncio.windows_events import NULL
 import math
 import glob
 import cv2
@@ -152,8 +153,8 @@ def image_postprocessing(ep_img, hct_img, wbc_img, df, marks= True, transparent=
         markgray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
         _, markmask = cv2.threshold(markgray, 1, 255, cv2.THRESH_BINARY)
         bgra = np.dstack((bg, markmask))
-        cv2.imwrite("mark.png", bgra)
-    cv2.imwrite("final.jpg", final)
+        return final, bgra
+    return final, None
 
 
 def show(img, name):

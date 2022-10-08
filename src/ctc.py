@@ -8,8 +8,10 @@ import time
 
 start_time = time.time()
 # Input =======================================================================================
-os.chdir("data")
-img_list = glob.glob('*.jpg')
+DATADIRECTORY = "/data"
+current_dir =  os.path.abspath(os.path.dirname(__file__))
+root_dir = os.path.abspath(current_dir + "/../")
+img_list = glob.glob(os.path.join(root_dir+DATADIRECTORY, "*.jpg"))
 
 # Parameters ==================================================================================
 blur_kernal = (5, 5)
@@ -26,6 +28,7 @@ epcam_dict = {}
 wbc_dict = {}
 
 for i in img_list:
+    print(i)
     if '_0.jpg' in i:
         hct_dict[i.split("_0.")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
     elif '_1.jpg' in i:
@@ -41,7 +44,7 @@ elif not (len(hct_dict) == len(epcam_dict) == len(wbc_dict)):
 clahe = cv2.createCLAHE(clipLimit= CLIP_LIMIT, tileGridSize= (TILEGRIDSIZE, TILEGRIDSIZE))
 
 for key in epcam_dict.keys():                                                   # key is identical for same set of fluorescent
-    print(key+">>>>>>>>>>>\npreprocessing")
+    print(key+">>>>>>>>>>>\npreprocessing")                                     # key name includes pathname
     # EpCam preprocessing =====================================================================
     ep = epcam_dict[key]
     img = clahe.apply(ep)
@@ -49,7 +52,7 @@ for key in epcam_dict.keys():                                                   
     _, th = cv2.threshold(ep, ret, 255, cv2.THRESH_BINARY)
     a = cv.erode_dilate(th)
     fin_ep = cv.crop(a)
-    cv2.imwrite("fin_ep.jpg", fin_ep)
+    cv2.imwrite(os.path.join(DATADIRECTORY, "fin_ep.jpg"), fin_ep)
 
     # hoechest preprocessing ==================================================================
     hct = hct_dict[key]
@@ -61,7 +64,7 @@ for key in epcam_dict.keys():                                                   
         ret, img = cv.otsu_th(img, blur_kernal)
         a[iter[0]][iter[1]] = cv.erode_dilate(img)
     fin_hct = cv.crop(np.block(a))
-    cv2.imwrite("fin_hct.jpg", fin_hct)
+    cv2.imwrite(os.path.join(DATADIRECTORY,"fin_hct.jpg"), fin_hct)
 
     # wbc preprocessing =======================================================================
     wbc = wbc_dict[key]
@@ -73,13 +76,16 @@ for key in epcam_dict.keys():                                                   
         ret, img = cv.otsu_th(img, blur_kernal)
         a[iter[0]][iter[1]] = cv.erode_dilate(img)
     fin_wbc = cv.crop(np.block(a))
-    cv2.imwrite("fin_wbc.jpg", fin_wbc)
+    cv2.imwrite(os.path.join(DATADIRECTORY,"fin_wbc.jpg"), fin_wbc)
 
     # provide dataframe and export image ======================================================
     print("creating dataframe and identifying")
     imgs = (fin_ep, fin_hct, fin_wbc)
     df = cv.img2dataframe(*imgs)                                        # *operater unpacks iterable and pass as positional arguments
-    cv.image_postprocessing(*imgs, df, marks= MARK, transparent= TRANS, beta= BETA)
+    final, mark = cv.image_postprocessing(*imgs, df, marks= MARK, transparent=TRANS, beta= BETA)
+    cv2.imwrite(key+"_final.jpg", final)
+    if TRANS:
+        cv2.imwrite(key+"_mark.png", mark)
     with pd.ExcelWriter(key+".xlsx") as writer:
         df.to_excel(writer)
 
