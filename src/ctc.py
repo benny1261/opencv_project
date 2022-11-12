@@ -8,10 +8,13 @@ import time
 
 start_time = time.time()
 # Input =======================================================================================
-DATADIRECTORY = "/data"
-current_dir =  os.path.abspath(os.path.dirname(__file__))
-root_dir = os.path.abspath(current_dir + "/../")
-img_list = glob.glob(os.path.join(root_dir+DATADIRECTORY, "*.jpg"))
+DATADIRECTORY = "data"
+root_dir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
+os.chdir(root_dir)
+data_dir = os.path.join(os.getcwd(), DATADIRECTORY)
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
+img_list = glob.glob(os.path.join(DATADIRECTORY, "*.jpg"))
 
 # Parameters ==================================================================================
 blur_kernal = (5, 5)
