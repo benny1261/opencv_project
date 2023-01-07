@@ -54,7 +54,7 @@ for key in epcam_dict.keys():                                                   
     _, th = cv2.threshold(ep, ret, 255, cv2.THRESH_BINARY)
     a = cv.erode_dilate(th)
     fin_ep = cv.crop(a)
-    cv2.imwrite(os.path.join(DATADIRECTORY, "fin_ep.jpg"), fin_ep)
+    # cv2.imwrite(os.path.join(DATADIRECTORY, "fin_ep.jpg"), fin_ep)
 
     # hoechest preprocessing ==================================================================
     hct = hct_dict[key]
@@ -66,7 +66,7 @@ for key in epcam_dict.keys():                                                   
         ret, img = cv.otsu_th(img, blur_kernal)
         a[iter[0]][iter[1]] = cv.erode_dilate(img)
     fin_hct = cv.crop(np.block(a))
-    cv2.imwrite(os.path.join(DATADIRECTORY,"fin_hct.jpg"), fin_hct)
+    # cv2.imwrite(os.path.join(DATADIRECTORY,"fin_hct.jpg"), fin_hct)
 
     # wbc preprocessing =======================================================================
     wbc = wbc_dict[key]
@@ -78,7 +78,7 @@ for key in epcam_dict.keys():                                                   
         ret, img = cv.otsu_th(img, blur_kernal)
         a[iter[0]][iter[1]] = cv.erode_dilate(img)
     fin_wbc = cv.crop(np.block(a))
-    cv2.imwrite(os.path.join(DATADIRECTORY,"fin_wbc.jpg"), fin_wbc)
+    # cv2.imwrite(os.path.join(DATADIRECTORY,"fin_wbc.jpg"), fin_wbc)
 
     # provide dataframe and export image ======================================================
     print("creating dataframe")

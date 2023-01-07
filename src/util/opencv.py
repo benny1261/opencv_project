@@ -6,34 +6,38 @@ import numpy as np
 from threading import Thread
 import pandas as pd
 
-class Import_thread(Thread):                                                            # define a class that inherits from 'Thread' class
-    def __init__(self):
-        super().__init__()                                                              # run __init__ of parent class
-        self.img_list = []
-        self.img_dict = {}
+class Import_thread(Thread):                                                        # define a class that inherits from 'Thread' class
+    def __init__(self, path: str):
+        super().__init__()                                                          # run __init__ of parent class
+        self.img_list = glob.glob(os.path.join(path, "*.jpg"))
+        self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
 
-    def run(self):                                                                      # overwrites run() method from parent class
-
-        self.img_list.extend(glob.glob('*.jpg'))
+    def run(self):                                                                  # overwrites run() method from parent class
         for i in self.img_list:
-            self.img_dict[i.split(".")[0]] = cv2.imread(i)
-    
-    def single_file(self, file):                                                        # external method for importing single file, not thread
-        if os.path.basename(file) in self.img_list:                                     # prevents file be repeatedly imported
-            print('repeated file')
-        elif os.path.isfile(file):
-            self.img_dict[os.path.basename(file).split(".")[0]] = cv2.imread(file)
-        else:
-            print('invalid parameter')
-        
+            if '_0.jpg' in i:
+                self.img_0 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+            elif '_1.jpg' in i:
+                self.img_1 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+            elif '_3.jpg' in i:
+                self.img_3 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+
+        if (self.img_0 is None) or (self.img_1 is None) or (self.img_3 is None):
+            raise IOError(FileNotFoundError, "insufficient required image")
+
 
 class Cv_api:
     def __init__(self, app):
         self.app = app
 
+    def export_td(self):                                                               # needs to be able to thread repeatedly
+        # establish export thread
+        export_td = Thread(target= self.export)
+        export_td.start()
+    
     def export(self):
         print('export thread')
-        print(self.app.frames['export'].checkbtn['gray'].get())
+        print(self.app.temp_directory)
+        # print(self.app.frames['export'].checkbtn['gray'].get())
 
 
 def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray):
