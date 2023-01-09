@@ -30,6 +30,24 @@ class Window:
         self.export_directory = os.getcwd()
         self.api = Cv_api(self)
 
+        # create menu
+        self.mymenu = tk.Menu(self.root)
+        self.root.config(menu= self.mymenu)                                                         # bound "self.mymenu" to root window
+        # create menu items
+        self.file_menu= tk.Menu(self.mymenu, tearoff= 0)                                            # create "file" submenu under self.mymenu, tearoff= 0 to remove slash
+        self.file_menu.add_command(label= "Home", command= self.home)
+        self.file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
+        self.file_menu.add_command(label= "Export settings", command = self.export_setting)
+        self.file_menu.add_separator()                                                              # create divider
+        self.file_menu.add_command(label= "Exit", command= self.root.quit)
+        self.view_menu= tk.Menu(self.mymenu, tearoff= 0)
+        self.view_menu.add_command(label= "CWD Images", command= self.viewer)
+        self.mymenu.add_cascade(label= "File", menu= self.file_menu)
+        self.mymenu.add_cascade(label= "View", menu= self.view_menu)
+
+        # create status bar
+        self.root.stat_bar = tk.Label(self.root, borderwidth= 2, relief= "sunken", text= "cwd: " + os.getcwd(), anchor= tk.E)
+
         # initializing home frame and its widgets
         self.home_fm = Frame(self.root, "Home", padx= 20, pady= 10)
         self.home_fm.btn['f_img'] = tk.Button(self.home_fm.frame, command =lambda: self.choose_filefolder())
@@ -39,6 +57,18 @@ class Window:
         self.home_fm.btn['auto'] = tk.Button(self.home_fm.frame, text = "auto", bg="skyblue", width=8, height=2, command= self.auto)
         self.home_fm.btn['manual'] = tk.Button(self.home_fm.frame, text = "manual", bg="orange", width=8, height=2, command= self.manual)
         self.home_fm.btn['export'] = tk.Button(self.home_fm.frame, text= 'Export', bg='#FF4D40', command= lambda: self.api.export_td())
+
+        # placing widgets in home frame
+        tk.Label(self.home_fm.frame, text = "Fluorescent image folder").grid(row= 0, column= 0, sticky= 'W')
+        self.home_fm.btn['f_img'].grid(row= 0, column= 1)
+        tk.Label(self.home_fm.frame, text = "Target cell").grid(row= 1, column= 0, sticky= 'W')
+        self.home_fm.combobox['target'].grid(row= 1, column= 1, pady= 5)
+        self.home_fm.frame.rowconfigure(2, minsize= 10)
+        tk.Label(self.home_fm.frame, text = "Optimize thereshold").grid(row= 3, columnspan= 2, ipady= 5)
+        self.home_fm.btn['auto'].grid(row= 4, column= 0)
+        self.home_fm.btn['manual'].grid(row= 4, column= 1)
+        self.home_fm.frame.rowconfigure(5, minsize= 20)
+        self.home_fm.btn['export'].grid(row= 6, column= 1, columnspan= 2, sticky= tk.SE)
 
         # initializing export window,frame and its widgets
         self.export_win = tk.Toplevel(self.root)
@@ -57,7 +87,18 @@ class Window:
         # export_frame.btn['save'] = tk.Button(export_win, text= 'save', command= lambda: [thread123.start(), export_win.destroy()])  # use lambda to realize multiple commands
         self.export_fm.btn['save'] = tk.Button(self.export_win, text= 'save', command= lambda: self.export_win.withdraw())
 
+        # initializing manual frame and its widgets
+        self.manual_fm = Frame(self.root, 'Manual Threshold', padx= 40, pady= 40)
+        self.manual_fm.scaler = tk.Scale(self.manual_fm.frame, orient= tk.HORIZONTAL, length= 600, from_= 0, to_= 255)
+        self.manual_fm.scaler.config(command= self.fetch)
+
         self.hello()                                                                                # execute
+
+        # initializing window position
+        self.root.update_idletasks()
+        cord_x = (self.root.winfo_screenwidth()-self.root.winfo_width())/2
+        cord_y = (self.root.winfo_screenheight()-self.root.winfo_height())/2
+        self.root.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')                                     # uses f-string mothod
 
 
     def auto(self):
@@ -83,12 +124,7 @@ class Window:
             except:
                 children.withdraw()                                                             # in case children is a toplevel
 
-        # placing menu
-        self.root.config(menu= self.mymenu)
-        # placing status bar
-        self.root.stat_bar.grid(row= 1, column= 0, sticky="W"+"E")
-        # placing frame and widgits
-        self.home_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
+        self.hello()
     
     def choose_cwd(self):
         '''Let user select directory where they import data'''
@@ -168,60 +204,17 @@ class Window:
 
         # switching frames
         self.home_fm.frame.grid_forget()
-        self.manual_fm = Frame(self.root, 'Manual Threshold', padx= 40, pady= 40)
         self.manual_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
-
-        self.manual_fm.scaler = tk.Scale(self.manual_fm.frame, orient= tk.HORIZONTAL, length= 600, from_= 0, to_= 255)
         self.manual_fm.scaler.pack()
-        self.manual_fm.scaler.config(command= self.fetch)
 
     def hello(self):
         '''Starting GUI program'''
 
-        # create menu
-        self.mymenu = tk.Menu(self.root)
-        self.root.config(menu= self.mymenu)                                                         # bound "self.mymenu" to window
-
-        # create menu items
-        self.file_menu= tk.Menu(self.mymenu, tearoff= 0)                                            # create "file" submenu under self.mymenu, tearoff= 0 to remove slash
-        self.file_menu.add_command(label= "Home", command= self.home)
-        self.file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
-        self.file_menu.add_command(label= "Export settings", command = self.export_setting)
-        self.file_menu.add_separator()                                                              # create divider
-        self.file_menu.add_command(label= "Exit", command= self.root.quit)
-        self.view_menu= tk.Menu(self.mymenu, tearoff= 0)
-        self.view_menu.add_command(label= "CWD Images", command= self.viewer)
-
-        # placing menus
-        self.mymenu.add_cascade(label= "File", menu= self.file_menu)
-        self.mymenu.add_cascade(label= "View", menu= self.view_menu)
-
-        # create and place status bar in root
-        self.root.stat_bar = tk.Label(self.root, borderwidth= 2, relief= "sunken", text= "cwd: " + os.getcwd(), anchor= tk.E)
-        self.root.stat_bar.grid(row= 1, column= 0, sticky="W"+"E")
-
         # place home frame
         self.home_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
 
-        # add widgets in home frame
-        tk.Label(self.home_fm.frame, text = "Fluorescent image folder").grid(row= 0, column= 0, sticky= 'W')
-        self.home_fm.btn['f_img'].grid(row= 0, column= 1)
-        tk.Label(self.home_fm.frame, text = "Target cell").grid(row= 1, column= 0, sticky= 'W')
-        self.home_fm.combobox['target'].grid(row= 1, column= 1, pady= 5)
-
-        self.home_fm.frame.rowconfigure(2, minsize= 10)
-        tk.Label(self.home_fm.frame, text = "Optimize thereshold").grid(row= 3, columnspan= 2, ipady= 5)
-        self.home_fm.btn['auto'].grid(row= 4, column= 0)
-        self.home_fm.btn['manual'].grid(row= 4, column= 1)
-
-        self.home_fm.frame.rowconfigure(5, minsize= 20)
-        self.home_fm.btn['export'].grid(row= 6, column= 1, columnspan= 2, sticky= tk.SE)
-
-        # initializing window position
-        self.root.update_idletasks()
-        cord_x = (self.root.winfo_screenwidth()-self.root.winfo_width())/2
-        cord_y = (self.root.winfo_screenheight()-self.root.winfo_height())/2
-        self.root.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')                                     # uses f-string mothod
+        # place status bar in root
+        self.root.stat_bar.grid(row= 1, column= 0, sticky="W"+"E")
 
 if __name__ == '__main__':
     prog = Window()
