@@ -21,8 +21,6 @@ class Frame:
 class Window:
 
     def __init__(self):
-        # initializing dict of frames
-        self.frames = {}
         # initializing root window
         self.root = tk.Tk()
         self.root.title("Hsu.exe")
@@ -31,7 +29,36 @@ class Window:
         self.temp_directory = os.getcwd()
         self.export_directory = os.getcwd()
         self.api = Cv_api(self)
+
+        # initializing home frame and its widgets
+        self.home_fm = Frame(self.root, "Home", padx= 20, pady= 10)
+        self.home_fm.btn['f_img'] = tk.Button(self.home_fm.frame, command =lambda: self.choose_filefolder())
+        self.home_fm.btn['f_img'].configure(relief= tk.SUNKEN, width= 20, bg= 'White', fg= 'gray', activebackground= 'White', activeforeground= 'gray')        
+        self.home_fm.combobox['target'] = ttk.Combobox(self.home_fm.frame, values= ["CTC", "others..."])
+        self.home_fm.combobox['target'].current(0)
+        self.home_fm.btn['auto'] = tk.Button(self.home_fm.frame, text = "auto", bg="skyblue", width=8, height=2, command= self.auto)
+        self.home_fm.btn['manual'] = tk.Button(self.home_fm.frame, text = "manual", bg="orange", width=8, height=2, command= self.manual)
+        self.home_fm.btn['export'] = tk.Button(self.home_fm.frame, text= 'Export', bg='#FF4D40', command= lambda: self.api.export_td())
+
+        # initializing export window,frame and its widgets
+        self.export_win = tk.Toplevel(self.root)
+        self.export_win.title('Export settings')
+        self.export_win.resizable(0,0)
+        self.export_win.withdraw()
+        self.export_win.protocol("WM_DELETE_WINDOW", self.export_win.withdraw)
+
+        self.export_fm = Frame(self.export_win, fmname= 'export settings')
+        self.export_fm.checkbtn['binary0'] = tk.BooleanVar(value= False)
+        self.export_fm.checkbtn['binary1'] = tk.BooleanVar(value= False)
+        self.export_fm.checkbtn['binary3'] = tk.BooleanVar(value= False)
+        self.export_fm.checkbtn['mask'] = tk.BooleanVar(value= True)
+        self.export_fm.btn['destination'] = tk.Button(self.export_win, text= self.export_directory, command = self.choose_des)
+        self.export_fm.btn['destination'].configure(relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
+        # export_frame.btn['save'] = tk.Button(export_win, text= 'save', command= lambda: [thread123.start(), export_win.destroy()])  # use lambda to realize multiple commands
+        self.export_fm.btn['save'] = tk.Button(self.export_win, text= 'save', command= lambda: self.export_win.withdraw())
+
         self.hello()                                                                                # execute
+
 
     def auto(self):
         print("NMSL")
@@ -48,23 +75,20 @@ class Window:
         if messagebox.askokcancel("quit", "Confirm quit?"):
             self.root.quit()
 
-    def renew(self):
-        '''Refresh window to home page by destroying old frames and widgets in root then create a new one'''
-        for children in self.root.winfo_children():
-            children.destroy()
-        self.hello()
-
     def home(self):
         '''return frame to home page'''
         for children in self.root.winfo_children():
-            children.grid_forget()
-        
+            try:
+                children.grid_forget()
+            except:
+                children.withdraw()                                                             # in case children is a toplevel
+
         # placing menu
         self.root.config(menu= self.mymenu)
         # placing status bar
         self.root.stat_bar.grid(row= 1, column= 0, sticky="W"+"E")
         # placing frame and widgits
-        self.frames['init'].frame.grid(row= 0, column= 0, padx= 10, pady= 5)
+        self.home_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
     
     def choose_cwd(self):
         '''Let user select directory where they import data'''
@@ -83,45 +107,30 @@ class Window:
     def export_setting(self):
         '''export custumization'''
 
-        self.export_directory = self.temp_directory
-        # create toplevel
-        export_win = tk.Toplevel(self.root)
-        export_win.title('Export settings')
-        export_win.resizable(0,0)
-        # self.frames['export'] = export_win
+        self.export_fm.btn['destination'].configure(text= self.export_directory)
+        self.export_win.deiconify()                                                             # show the window
 
-        # create frame
-        export_frame = Frame(export_win, fmname= 'export settings')
-        self.frames['export'] = export_frame
-        export_frame.frame.grid(row= 0, column= 0, columnspan= 2, padx= 30, pady= 10, sticky= tk.W)
+        # place frame
+        self.export_fm.frame.grid(row= 0, column= 0, columnspan= 2, padx= 30, pady= 10, sticky= tk.W)
 
-        # widgets in frame
-        export_frame.checkbtn['binary0'] = tk.BooleanVar(value= False)
-        export_frame.checkbtn['binary1'] = tk.BooleanVar(value= False)
-        export_frame.checkbtn['binary3'] = tk.BooleanVar(value= False)
-        export_frame.checkbtn['mask'] = tk.BooleanVar(value= True)
-        tk.Checkbutton(export_frame.frame, text= 'binary0', variable= export_frame.checkbtn['binary0']).grid(row= 0, column= 0)
-        tk.Checkbutton(export_frame.frame, text= 'binary1', variable= export_frame.checkbtn['binary1']).grid(row= 0, column= 1)
-        tk.Checkbutton(export_frame.frame, text= 'binary3', variable= export_frame.checkbtn['binary3']).grid(row= 1, column= 0)
-        tk.Checkbutton(export_frame.frame, text= 'mask', variable= export_frame.checkbtn['mask']).grid(row= 1, column= 1)
+        # place widgets in frame
+        tk.Checkbutton(self.export_fm.frame, text= 'binary0', variable= self.export_fm.checkbtn['binary0']).grid(row= 0, column= 0)
+        tk.Checkbutton(self.export_fm.frame, text= 'binary1', variable= self.export_fm.checkbtn['binary1']).grid(row= 0, column= 1)
+        tk.Checkbutton(self.export_fm.frame, text= 'binary3', variable= self.export_fm.checkbtn['binary3']).grid(row= 1, column= 0)
+        tk.Checkbutton(self.export_fm.frame, text= 'mask', variable= self.export_fm.checkbtn['mask']).grid(row= 1, column= 1)
 
         # widgets below frame
-        export_frame.label['destination'] = tk.Label(export_win, text = "destination:", padx= 10).grid(row= 2, column= 0)
-        export_frame.btn['destination'] = tk.Button(export_win, text= self.export_directory, command = self.choose_des)
-        export_frame.btn['destination'].configure(relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
-        export_frame.btn['destination'].grid(row= 2, column= 1, padx= 5, pady= 10)
-        # export_frame.btn['save'] = tk.Button(export_win, text= 'save', command= lambda: [thread123.start(), export_win.destroy()])  # use lambda to realize multiple commands
-        export_frame.btn['save'] = tk.Button(export_win, text= 'save', command= lambda: export_win.destroy())
-        export_frame.btn['save'].grid(row= 3, column= 1, sticky= 'E', padx= 10, pady= 5)
+        tk.Label(self.export_win, text = "destination:", padx= 10).grid(row= 2, column= 0)
+        self.export_fm.btn['destination'].grid(row= 2, column= 1, padx= 5, pady= 10)
+        self.export_fm.btn['save'].grid(row= 3, column= 1, sticky= 'E', padx= 10, pady= 5)
 
     def choose_des(self):
         '''Let user select directory where they export data'''
 
-        self.frames['export'].btn['destination'].configure(text= self.export_directory)
         des = filedialog.askdirectory(initialdir= os.getcwd())
         if des:
             self.export_directory = des
-            self.frames['export'].btn['destination'].configure(text= self.export_directory)
+            self.export_fm.btn['destination'].configure(text= self.export_directory)
     
     def choose_filefolder(self):
         '''Choose material pictures'''
@@ -151,20 +160,20 @@ class Window:
             self.import_td.start()                                              # this will start the run() method in Import_thread
             self.thread_monitor(progwin, self.import_td, progwin.destroy)
 
-            self.frames['init'].btn['f_img'].configure(text= os.path.basename(os.path.normpath(folder)))
+            self.home_fm.btn['f_img'].configure(text= os.path.basename(os.path.normpath(folder)))
+            self.export_directory = self.temp_directory
 
     def manual(self):
         '''Manual adjusting threshold'''
 
         # switching frames
-        self.frames['init'].frame.grid_forget()
-        manl = Frame(self.root, 'Manual Threshold', padx= 40, pady= 40)
-        self.frames['manual'] = manl
-        manl.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
+        self.home_fm.frame.grid_forget()
+        self.manual_fm = Frame(self.root, 'Manual Threshold', padx= 40, pady= 40)
+        self.manual_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
 
-        manl.scaler = tk.Scale(self.frames['manual'].frame, orient= tk.HORIZONTAL, length= 600, from_= 0, to_= 255)
-        manl.scaler.pack()
-        manl.scaler.config(command= self.fetch)
+        self.manual_fm.scaler = tk.Scale(self.manual_fm.frame, orient= tk.HORIZONTAL, length= 600, from_= 0, to_= 255)
+        self.manual_fm.scaler.pack()
+        self.manual_fm.scaler.config(command= self.fetch)
 
     def hello(self):
         '''Starting GUI program'''
@@ -175,10 +184,9 @@ class Window:
 
         # create menu items
         self.file_menu= tk.Menu(self.mymenu, tearoff= 0)                                            # create "file" submenu under self.mymenu, tearoff= 0 to remove slash
-        self.file_menu.add_command(label= "New", command= self.renew)
         self.file_menu.add_command(label= "Home", command= self.home)
         self.file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
-        self.file_menu.add_command(label= "Export", command = self.export_setting)
+        self.file_menu.add_command(label= "Export settings", command = self.export_setting)
         self.file_menu.add_separator()                                                              # create divider
         self.file_menu.add_command(label= "Exit", command= self.root.quit)
         self.view_menu= tk.Menu(self.mymenu, tearoff= 0)
@@ -192,35 +200,22 @@ class Window:
         self.root.stat_bar = tk.Label(self.root, borderwidth= 2, relief= "sunken", text= "cwd: " + os.getcwd(), anchor= tk.E)
         self.root.stat_bar.grid(row= 1, column= 0, sticky="W"+"E")
 
-        # establish home frame
-        init = Frame(self.root, "Home", padx= 20, pady= 10)
-        self.frames['init'] = init                                                                  # make following code cleaner
-        init.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
-        
+        # place home frame
+        self.home_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
+
         # add widgets in home frame
-        tk.Label(init.frame, text = "Fluorescent image folder").grid(row= 0, column= 0, sticky= 'W')
-        init.btn['f_img'] = tk.Button(init.frame, command =lambda: self.choose_filefolder())
-        init.btn['f_img'].configure(relief= tk.SUNKEN, width= 20, bg= 'White', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
-        init.btn['f_img'].grid(row= 0, column= 1)
+        tk.Label(self.home_fm.frame, text = "Fluorescent image folder").grid(row= 0, column= 0, sticky= 'W')
+        self.home_fm.btn['f_img'].grid(row= 0, column= 1)
+        tk.Label(self.home_fm.frame, text = "Target cell").grid(row= 1, column= 0, sticky= 'W')
+        self.home_fm.combobox['target'].grid(row= 1, column= 1, pady= 5)
 
-        tk.Label(init.frame, text = "Target cell").grid(row= 1, column= 0, sticky= 'W')
-        init.combobox['target'] = ttk.Combobox(init.frame, values= ["CTC", "others..."])
-        init.combobox['target'].current(0)
-        init.combobox['target'].grid(row= 1, column= 1, pady= 5)
+        self.home_fm.frame.rowconfigure(2, minsize= 10)
+        tk.Label(self.home_fm.frame, text = "Optimize thereshold").grid(row= 3, columnspan= 2, ipady= 5)
+        self.home_fm.btn['auto'].grid(row= 4, column= 0)
+        self.home_fm.btn['manual'].grid(row= 4, column= 1)
 
-        init.frame.rowconfigure(2, minsize= 10)
-        lb = tk.Label(init.frame, text = "Optimize thereshold")
-        lb.grid(row= 3, columnspan= 2, ipady= 5)
-        aut = tk.Button(init.frame, text = "auto", bg="skyblue", width=8, height=2)
-        aut.config(command = self.auto)
-        aut.grid(row= 4, column= 0)
-        mnl = tk.Button(init.frame, text = "manual", bg="orange", width=8, height=2)
-        mnl.config(command = self.manual)
-        mnl.grid(row= 4, column= 1)
-
-        init.frame.rowconfigure(5, minsize= 20)
-        init.btn['export'] = tk.Button(init.frame, text= 'Export', bg='#FF4D40', command= lambda: self.api.export_td())
-        init.btn['export'].grid(row= 6, column= 1, columnspan= 2, sticky= tk.SE)
+        self.home_fm.frame.rowconfigure(5, minsize= 20)
+        self.home_fm.btn['export'].grid(row= 6, column= 1, columnspan= 2, sticky= tk.SE)
 
         # initializing window position
         self.root.update_idletasks()

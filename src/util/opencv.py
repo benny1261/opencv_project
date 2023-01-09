@@ -36,8 +36,8 @@ class Cv_api:
     
     def export(self):
         print('export thread')
-        print(self.app.temp_directory)
-        # print(self.app.frames['export'].checkbtn['gray'].get())
+        print('export loc:',self.app.temp_directory)
+        print(self.app.export_fm.checkbtn['mask'].get())
 
 
 def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray):
