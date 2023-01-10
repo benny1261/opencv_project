@@ -80,7 +80,9 @@ class Window:
         self.export_fm = Frame(self.export_win, fmname= 'export settings')
         self.export_fm.checkbtn['binary0'] = tk.BooleanVar(value= False)
         self.export_fm.checkbtn['binary1'] = tk.BooleanVar(value= False)
+        self.export_fm.checkbtn['binary2'] = tk.BooleanVar(value= False)
         self.export_fm.checkbtn['binary3'] = tk.BooleanVar(value= False)
+        self.export_fm.checkbtn['mark'] = tk.BooleanVar(value= False)
         self.export_fm.checkbtn['mask'] = tk.BooleanVar(value= True)
         self.export_fm.btn['destination'] = tk.Button(self.export_win, text= self.export_directory, command = self.choose_des)
         self.export_fm.btn['destination'].configure(relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
@@ -152,13 +154,15 @@ class Window:
         # place widgets in frame
         tk.Checkbutton(self.export_fm.frame, text= 'binary0', variable= self.export_fm.checkbtn['binary0']).grid(row= 0, column= 0)
         tk.Checkbutton(self.export_fm.frame, text= 'binary1', variable= self.export_fm.checkbtn['binary1']).grid(row= 0, column= 1)
-        tk.Checkbutton(self.export_fm.frame, text= 'binary3', variable= self.export_fm.checkbtn['binary3']).grid(row= 1, column= 0)
-        tk.Checkbutton(self.export_fm.frame, text= 'mask', variable= self.export_fm.checkbtn['mask']).grid(row= 1, column= 1)
+        tk.Checkbutton(self.export_fm.frame, text= 'binary2', variable= self.export_fm.checkbtn['binary2']).grid(row= 1, column= 0)
+        tk.Checkbutton(self.export_fm.frame, text= 'binary3', variable= self.export_fm.checkbtn['binary3']).grid(row= 1, column= 1)
+        tk.Checkbutton(self.export_fm.frame, text= 'mark', variable= self.export_fm.checkbtn['mark']).grid(row= 0, column= 2)
+        tk.Checkbutton(self.export_fm.frame, text= 'mask', variable= self.export_fm.checkbtn['mask']).grid(row= 1, column= 2)
 
         # widgets below frame
-        tk.Label(self.export_win, text = "destination:", padx= 10).grid(row= 2, column= 0)
-        self.export_fm.btn['destination'].grid(row= 2, column= 1, padx= 5, pady= 10)
-        self.export_fm.btn['save'].grid(row= 3, column= 1, sticky= 'E', padx= 10, pady= 5)
+        tk.Label(self.export_win, text = "destination:", padx= 10).grid(row= 1, column= 0)
+        self.export_fm.btn['destination'].grid(row= 1, column= 1, padx= 5, pady= 10)
+        self.export_fm.btn['save'].grid(row= 2, column= 1, sticky= 'E', padx= 10, pady= 5)
 
     def choose_des(self):
         '''Let user select directory where they export data'''
