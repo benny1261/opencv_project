@@ -21,6 +21,12 @@ class Frame:
 class Window:
 
     def __init__(self):
+        # data
+        self.img_0 = None
+        self.img_1 = None
+        self.img_2 = None
+        self.img_3 = None
+
         # initializing root window
         self.root = tk.Tk()
         self.root.title("Hsu.exe")
@@ -142,6 +148,12 @@ class Window:
         else:
             command()
 
+            # pass data after thread closed
+            self.img_0 = thread.img_0
+            self.img_1 = thread.img_1
+            self.img_2 = thread.img_2
+            self.img_3 = thread.img_3
+
     def export_setting(self):
         '''export custumization'''
 
@@ -178,7 +190,7 @@ class Window:
         folder = filedialog.askdirectory(initialdir= os.getcwd())   
         if folder:
             self.temp_directory = folder
-            self.import_td = Import_thread(folder)                              # create class inherited from threading, initialize each time when choosing folder
+            import_td = Import_thread(folder)                              # create class inherited from threading, initialize each time when choosing folder
 
             # create progress bar toplevel
             progwin = tk.Toplevel(self.root)
@@ -197,8 +209,8 @@ class Window:
             progwin.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')               # uses f-string mothod
             
             # connect to imported threading function from opencv.py
-            self.import_td.start()                                              # this will start the run() method in Import_thread
-            self.thread_monitor(progwin, self.import_td, progwin.destroy)
+            import_td.start()                                                   # this will start the run() method in Import_thread
+            self.thread_monitor(progwin, import_td, progwin.destroy)
 
             self.home_fm.btn['f_img'].configure(text= os.path.basename(os.path.normpath(folder)))
             self.export_directory = self.temp_directory

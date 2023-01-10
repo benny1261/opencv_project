@@ -6,6 +6,12 @@ import numpy as np
 from threading import Thread
 import pandas as pd
 
+BLUR_KERNAL = (5, 5)
+CLIP_LIMIT = 4
+TILEGRIDSIZE = 8
+SPLIT = 5
+BETA = 0.4
+
 class Import_thread(Thread):                                                        # define a class that inherits from 'Thread' class
     def __init__(self, path: str):
         super().__init__()                                                          # run __init__ of parent class
@@ -18,10 +24,12 @@ class Import_thread(Thread):                                                    
                 self.img_0 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
             elif '_1.jpg' in i:
                 self.img_1 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+            elif '_2.jpg' in i:
+                self.img_2 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
             elif '_3.jpg' in i:
                 self.img_3 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
 
-        if (self.img_0 is None) or (self.img_1 is None) or (self.img_3 is None):
+        if (self.img_0 is None) or (self.img_1 is None) or (self.img_2 is None) or (self.img_3 is None):
             raise IOError(FileNotFoundError, "insufficient required image")
 
 
@@ -31,14 +39,26 @@ class Cv_api:
 
     def export_td(self):                                                               # needs to be able to thread repeatedly
         # establish export thread
-        export_td = Thread(target= self.export)
-        export_td.start()
+        thread = Thread(target= self.export)
+        thread.start()
     
     def export(self):
-        print('export thread')
-        print('export loc:',self.app.temp_directory)
-        print(self.app.export_fm.checkbtn['mask'].get())
+        if any(x is None for x in [self.app.img_0, self.app.img_1, self.app.img_2, self.app.img_3]):
+            print('insufficient data')
 
+        else:
+            pre_0 = preprocess_full(self.app.img_0, 0, imwrite= self.app.export_fm.checkbtn['binary0'].get(), path= self.app.export_directory)
+            pre_1 = preprocess_rare(self.app.img_1, 1, imwrite= self.app.export_fm.checkbtn['binary1'].get(), path= self.app.export_directory)
+            pre_3 = preprocess_full(self.app.img_3, 3, imwrite= self.app.export_fm.checkbtn['binary3'].get(), path= self.app.export_directory)
+
+            if self.app.home_fm.combobox['target'].get() == 'CTC':
+                df = img2dataframe(pre_1, pre_0, pre_3)
+
+                image_postprocessing(pre_1, pre_0, pre_3, df, path= self.app.export_directory, mark= self.app.export_fm.checkbtn['mark'].get(),
+                mask= self.app.export_fm.checkbtn['mask'].get(), beta= BETA)
+
+                with pd.ExcelWriter(os.path.join(self.app.export_directory, 'CTC.xlsx')) as writer:
+                    df.to_excel(writer)
 
 def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray):
     '''find contours from epcam img, calculate properties of each one and store in dataframe, 
@@ -97,9 +117,9 @@ also optional marks on exported image, parameter img should be grayscale\n
     return pd.DataFrame(data)
 
 
-def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, marks= True, transparent= False, beta = 0.3):
+def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, path: str, mark= False, mask= False, beta = 0.4):
     '''mark -> add mark on merge image\n
-    transparent -> only mark no background'''
+    mask -> only mark no background'''
     SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc
     ROUNDNESS_THRESHOLD = 0.5
 
@@ -109,11 +129,11 @@ def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.nd
     BLUR_MARK = (250, 51, 153)
     MARKFONT = cv2.FONT_HERSHEY_TRIPLEX
     MARKCOORDINATE = (-30, -45)         # (x, y)
-    
+
     RGBep = np.dstack((ep_img, ep_img, ep_img))                                         # white
     RGBhct = np.dstack((hct_img, np.zeros_like(hct_img), np.zeros_like(hct_img)))       # blue
     RGBwbc = np.dstack((np.zeros_like(wbc_img), wbc_img, np.zeros_like(wbc_img)))       # green
-    if transparent:
+    if mask:
         bg = np.dstack((np.zeros_like(ep_img), np.zeros_like(ep_img), np.zeros_like(ep_img)))
 
     # make merge image of epcam, hoechst and wbc
@@ -139,25 +159,26 @@ def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.nd
         else:
             color = NONCTC_MARK
 
-        if marks:
+        if mark:
             cv2.circle(final, center, 30, color, 2)
             cv2.putText(final, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
             cv2.putText(final, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
             fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
-        if transparent:
+        if mask:
             cv2.circle(bg, center, 30, color, 2)
             cv2.putText(bg, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
             cv2.putText(bg, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
             fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
-    
-    if transparent:
+    if mark:
+        cv2.imwrite(os.path.join(path, 'mark.jpg'), final)
+
+    if mask:
         markgray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
         _, markmask = cv2.threshold(markgray, 1, 255, cv2.THRESH_BINARY)
         bgra = np.dstack((bg, markmask))
-        return final, bgra
-    return final, None
+        cv2.imwrite(os.path.join(path, 'mask.png'), bgra)
 
 
 def show(img: np.ndarray, name: str):
@@ -187,6 +208,39 @@ def crop(img: np.ndarray):
     mask = cv2.circle(np.zeros_like(img), (center, center), radius, (255, 255, 255), -1)
     masked = cv2.bitwise_and(img, mask)
     return masked
+
+
+def preprocess_rare(img: np.ndarray, channel: int, imwrite: bool, path: str, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
+
+    clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
+
+    img_clahe = clahe.apply(img)
+    ret, a = otsu_th(img_clahe, blur_kernal)                                        # use otsu's threshold but use original image for thresholding
+    _, th = cv2.threshold(img, ret, 255, cv2.THRESH_BINARY)
+    a = erode_dilate(th)
+    fin = crop(a)
+    if imwrite:
+        cv2.imwrite(os.path.join(path, f"binary{channel}.jpg"), fin)
+    
+    return fin
+
+
+def preprocess_full(img: np.ndarray, channel: int, imwrite: bool, path: str, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
+
+    clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
+
+    split = [np.array_split(_, SPLIT, 1) for _ in np.array_split(img, SPLIT)]       # list comprehension
+
+    for iter in np.ndindex((len(split), len(split[:]))):
+        subimg = split[iter[0]][iter[1]]
+        subimg_clahe = clahe.apply(subimg)
+        ret, subimg_th = otsu_th(subimg_clahe, blur_kernal)
+        split[iter[0]][iter[1]] = erode_dilate(subimg_th)
+    fin = crop(np.block(split))
+    if imwrite:
+        cv2.imwrite(os.path.join(path, f"binary{channel}.jpg"), fin)
+
+    return fin
 
 if __name__ == '__main__':
 
