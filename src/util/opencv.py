@@ -36,11 +36,14 @@ class Import_thread(Thread):                                                    
 class Cv_api:
     def __init__(self, app):
         self.app = app
+        self.busy_flag = False
 
-    def export_td(self):                                                               # needs to be able to thread repeatedly
-        # establish export thread
-        thread = Thread(target= self.export)
-        thread.start()
+    def export_td(self):                                                            # needs to be able to thread repeatedly
+        if not self.busy_flag:                                                      # block creating new thread before previous one terminates
+            self.busy_flag = True
+            # establish export thread
+            thread = Thread(target= self.export)
+            thread.start()
     
     def export(self):
         if any(x is None for x in [self.app.img_0, self.app.img_1, self.app.img_2, self.app.img_3]):
@@ -59,6 +62,8 @@ class Cv_api:
 
                 with pd.ExcelWriter(os.path.join(self.app.export_directory, 'CTC.xlsx')) as writer:
                     df.to_excel(writer)
+        
+        self.busy_flag = False
 
 def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray):
     '''find contours from epcam img, calculate properties of each one and store in dataframe, 
