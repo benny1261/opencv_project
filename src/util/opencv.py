@@ -17,6 +17,7 @@ class Import_thread(Thread):                                                    
         super().__init__()                                                          # run __init__ of parent class
         self.img_list = glob.glob(os.path.join(path, "*.jpg"))
         self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
+        self.flag = False
 
     def run(self):                                                                  # overwrites run() method from parent class
         for i in self.img_list:
@@ -29,8 +30,10 @@ class Import_thread(Thread):                                                    
             elif '_3.jpg' in i:
                 self.img_3 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
 
-        if (self.img_0 is None) or (self.img_1 is None) or (self.img_2 is None) or (self.img_3 is None):
+        if any(x is None for x in [self.img_0, self.img_1, self.img_2, self.img_3]):
+            self.flag = False
             raise IOError(FileNotFoundError, "insufficient required image")
+        self.flag = True
 
 
 class Cv_api:
@@ -122,7 +125,7 @@ also optional marks on exported image, parameter img should be grayscale\n
     return pd.DataFrame(data)
 
 
-def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, path: str, mark= False, mask= False, beta = 0.4):
+def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, path: str, mark= False, mask= False, beta = BETA):
     '''mark -> add mark on merge image\n
     mask -> only mark no background'''
     SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc

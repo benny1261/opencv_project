@@ -61,7 +61,7 @@ class Window:
         self.home_fm.combobox['target'] = ttk.Combobox(self.home_fm.frame, values= ["CTC", "others..."])
         self.home_fm.combobox['target'].current(0)
         self.home_fm.btn['auto'] = tk.Button(self.home_fm.frame, text = "auto", bg="skyblue", width=8, height=2, command= self.auto)
-        self.home_fm.btn['manual'] = tk.Button(self.home_fm.frame, text = "manual", bg="orange", width=8, height=2, command= self.manual)
+        self.home_fm.btn['manual'] = tk.Button(self.home_fm.frame, text = "manual", bg="gray", width=8, height=2, command= self.manual)
         self.home_fm.btn['export'] = tk.Button(self.home_fm.frame, text= 'Export', bg='#FF4D40', command= lambda: self.api.export_td())
 
         # placing widgets in home frame
@@ -110,7 +110,8 @@ class Window:
 
 
     def auto(self):
-        print("NMSL")
+        self.home_fm.btn['auto'].configure(bg= 'skyblue')
+        self.home_fm.btn['manual'].configure(bg= 'gray')
 
     def fetch(self, new_value):
         print(int(new_value))
@@ -147,6 +148,12 @@ class Window:
             window.after(100, lambda: self.thread_monitor(window, thread, command))
         else:
             command()
+
+            # showing success or not
+            if thread.flag:
+                self.home_fm.btn['export'].configure(bg= '#82D900')
+            else:
+                self.home_fm.btn['export'].configure(bg='#FF4D40')
 
             # pass data after thread closed
             self.img_0 = thread.img_0
@@ -222,6 +229,10 @@ class Window:
         self.home_fm.frame.grid_forget()
         self.manual_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
         self.manual_fm.scaler.pack()
+
+        # change button color
+        self.home_fm.btn['auto'].configure(bg= 'gray')
+        self.home_fm.btn['manual'].configure(bg= 'skyblue')
 
     def hello(self):
         '''Starting GUI program'''
