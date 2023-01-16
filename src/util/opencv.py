@@ -5,6 +5,7 @@ import os
 import numpy as np
 from threading import Thread
 import pandas as pd
+from skimage import measure
 
 BLUR_KERNAL = (5, 5)
 CLIP_LIMIT = 4
@@ -72,52 +73,48 @@ def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray):
     '''find contours from epcam img, calculate properties of each one and store in dataframe, 
 also optional marks on exported image, parameter img should be grayscale\n
 @ret pandas dataframe'''
-    contours, _ = cv2.findContours(cv2.Canny(ep_img, 50, 100), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    labeled = measure.label(ep_img, connectivity= 2)
+    properties = measure.regionprops(labeled)
     ROI = 60
     HCT_THRESHOLD = 20                                                                  # pixels of epcam-hct intersection
     WBC_THRESHOLD = 0.5                                                                 # ratio, epcam-wbc intersection/epcam
     # cellsize = 12^2~25^2
     center = []
     roundness = []
+    max_diameter = []
     hct = []
     wbc = []
     wbc_sharpness = []                                                                  # lower means more blur
 
-    for _ in range(len(contours)):                                                      # needs index so use _ in range(len())
-        M = cv2.moments(contours[_])
-        if M["m00"] > 1e-5:
-            cx, cy = int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"])
-        # else:
-        #     cx, cy = int(M["m10"] / (M["m00"]+1e-5)), int(M["m01"] / (M["m00"]+1e-5)) # or add 1e-5 to avoid division by zero
+    for prop in properties:
+        cy, cx = map(round, prop.centroid)                  # (x, y)
+        center.append((cx, cy))
+        roundness.append(4*math.pi*prop.area/prop.perimeter_crofton**2)
+        max_diameter.append(prop.feret_diameter_max)
 
-            center.append((cx, cy))         # add center to df, notice (X,Y)
-            e = 4*math.pi*cv2.contourArea(contours[_])/cv2.arcLength(contours[_], closed= True)**2
-            roundness.append(e)                                                         # add roundness to df
-
-            # detection of intersection in ROI
-            x, y, w, h = cv2.boundingRect(contours[_])
-            eproi = ep_img[y:y+h, x:x+w]
-            hctroi = hct_img[y:y+h, x:x+w]
-            wbcroi = wbc_img[y:y+h, x:x+w]
-            fuzzyroi = wbc_img[cy-int(ROI/2):cy+int(ROI/2), cx-int(ROI/2):cx+int(ROI/2)]        # check if the ROI is too fuzzy
-            howblur = cv2.Laplacian(fuzzyroi, cv2.CV_64F).var()
-            wbc_sharpness.append(howblur)
-            # print(_, howblur)
-            
-            intersection_1 = cv2.bitwise_and(eproi, hctroi, mask = eproi)
-            intersection_2 = cv2.bitwise_and(eproi, wbcroi, mask = eproi)
-            if np.count_nonzero(intersection_1) >= HCT_THRESHOLD:
-                hct.append(True)
-            else:
-                hct.append(False)
-            if np.count_nonzero(intersection_2)/np.count_nonzero(eproi) >= WBC_THRESHOLD:
-                wbc.append(True)
-            else:
-                wbc.append(False)
+        # detection of intersection in ROI
+        eproi = ep_img[prop.slice]
+        hctroi = hct_img[prop.slice]
+        wbcroi = wbc_img[prop.slice]
+        fuzzyroi = wbc_img[cy-int(ROI/2):cy+int(ROI/2), cx-int(ROI/2):cx+int(ROI/2)]        # check if wbc too fuzzy
+        howblur = cv2.Laplacian(fuzzyroi, cv2.CV_64F).var()
+        wbc_sharpness.append(howblur)
+        
+        intersection_1 = cv2.bitwise_and(eproi, hctroi)
+        intersection_2 = cv2.bitwise_and(eproi, wbcroi)
+        if np.count_nonzero(intersection_1) >= HCT_THRESHOLD:
+            hct.append(True)
+        else:
+            hct.append(False)
+        if np.count_nonzero(intersection_2)/np.count_nonzero(eproi) >= WBC_THRESHOLD:
+            wbc.append(True)
+        else:
+            wbc.append(False)
 
     data = {
         "center":center,
         "roundness":roundness,
+        "max_diameter":max_diameter,
         "hct":hct,
         "wbc":wbc,
         "wbc_sharpness":wbc_sharpness
@@ -129,7 +126,7 @@ def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.nd
     '''mark -> add mark on merge image\n
     mask -> only mark no background'''
     SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc
-    ROUNDNESS_THRESHOLD = 0.5
+    ROUNDNESS_THRESHOLD = 0.7
 
     CTC_MARK = (0,0,255)
     NONCTC_MARK = (18,153,255)
@@ -169,13 +166,13 @@ def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.nd
 
         if mark:
             cv2.circle(final, center, 30, color, 2)
-            cv2.putText(final, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
+            cv2.putText(final, f'{_+1}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),        # label index starts from 1
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
             cv2.putText(final, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
             fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
         if mask:
             cv2.circle(bg, center, 30, color, 2)
-            cv2.putText(bg, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
+            cv2.putText(bg, f'{_+1}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
             cv2.putText(bg, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
             fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)

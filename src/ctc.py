@@ -17,80 +17,32 @@ if not os.path.exists(data_dir):
 img_list = glob.glob(os.path.join(DATADIRECTORY, "*.jpg"))
 
 # Parameters ==================================================================================
-blur_kernal = (5, 5)
-SPLIT = 5
-CLIP_LIMIT = 4
-TILEGRIDSIZE = 8
 MARK = True
-TRANS = True
+MASK = True
 BETA = 0.4
 
 # Reading =====================================================================================
-hct_dict = {}                                                                               # dtype=uint8, shape=(9081, 9081, 3)
-epcam_dict = {}
-wbc_dict = {}
-
 for i in img_list:
     if '_0.jpg' in i:
-        hct_dict[i.split("_0.")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+        hct = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
     elif '_1.jpg' in i:
-        epcam_dict[i.split("_1.")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+        epcam = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
     elif '_3.jpg' in i:
-        wbc_dict[i.split("_3.")[0]] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+        wbc = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
 
-if (not hct_dict) or (not epcam_dict) or (not wbc_dict):
-    raise IOError(FileNotFoundError, "insufficient required image")
-elif not (len(hct_dict) == len(epcam_dict) == len(wbc_dict)):
-    raise IOError("number of different fluorescent images are not equal")
+# df
+pre_0 = cv.preprocess_full(hct, 0, imwrite= False, path= DATADIRECTORY)
+pre_1 = cv.preprocess_rare(epcam, 1, imwrite= False, path= DATADIRECTORY)
+pre_3 = cv.preprocess_full(wbc, 3, imwrite= False, path= DATADIRECTORY)
 
-clahe = cv2.createCLAHE(clipLimit= CLIP_LIMIT, tileGridSize= (TILEGRIDSIZE, TILEGRIDSIZE))
+# provide dataframe and export image ======================================================
+print("creating dataframe")
+df = cv.img2dataframe(pre_1, pre_0, pre_3)
+print("post-processing")
+cv.image_postprocessing(pre_1, pre_0, pre_3, df, path= DATADIRECTORY, mark= MARK, mask= MASK, beta= BETA)
 
-for key in epcam_dict.keys():                                                   # key is identical for same set of fluorescent
-    print(key+">>>>>>>>>>>\npreprocessing")                                     # key name includes pathname
-    # EpCam preprocessing =====================================================================
-    ep = epcam_dict[key]
-    img = clahe.apply(ep)
-    ret, a = cv.otsu_th(img, blur_kernal)                                       # use otsu's threshold but use original image for thresholding
-    _, th = cv2.threshold(ep, ret, 255, cv2.THRESH_BINARY)
-    a = cv.erode_dilate(th)
-    fin_ep = cv.crop(a)
-    # cv2.imwrite(os.path.join(DATADIRECTORY, "fin_ep.jpg"), fin_ep)
-
-    # hoechest preprocessing ==================================================================
-    hct = hct_dict[key]
-    a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(hct, SPLIT)]       # list comprehension
-
-    for iter in np.ndindex((len(a), len(a[:]))):
-        img = a[iter[0]][iter[1]]
-        img = clahe.apply(img)
-        ret, img = cv.otsu_th(img, blur_kernal)
-        a[iter[0]][iter[1]] = cv.erode_dilate(img)
-    fin_hct = cv.crop(np.block(a))
-    # cv2.imwrite(os.path.join(DATADIRECTORY,"fin_hct.jpg"), fin_hct)
-
-    # wbc preprocessing =======================================================================
-    wbc = wbc_dict[key]
-    a = [np.array_split(_, SPLIT, 1) for _ in np.array_split(wbc, SPLIT)]
-
-    for iter in np.ndindex((len(a), len(a[:]))):
-        img = a[iter[0]][iter[1]]
-        img = clahe.apply(img)
-        ret, img = cv.otsu_th(img, blur_kernal)
-        a[iter[0]][iter[1]] = cv.erode_dilate(img)
-    fin_wbc = cv.crop(np.block(a))
-    # cv2.imwrite(os.path.join(DATADIRECTORY,"fin_wbc.jpg"), fin_wbc)
-
-    # provide dataframe and export image ======================================================
-    print("creating dataframe")
-    imgs = (fin_ep, fin_hct, fin_wbc)
-    df = cv.img2dataframe(*imgs)                                        # *operater unpacks iterable and pass as positional arguments
-    print("post-processing")
-    final, mark = cv.image_postprocessing(*imgs, df, marks= MARK, transparent=TRANS, beta= BETA)
-    cv2.imwrite(key+"_final.jpg", final)
-    if TRANS:
-        cv2.imwrite(key+"_mark.png", mark)
-    with pd.ExcelWriter(key+".xlsx") as writer:
-        df.to_excel(writer)
+with pd.ExcelWriter(os.path.join(DATADIRECTORY, "CTC.xlsx")) as writer:
+    df.to_excel(writer)
 
 end_time = time.time()
 print("++++++++++++++++++++++++++++++++++++++++++")
