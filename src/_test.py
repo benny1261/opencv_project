@@ -8,18 +8,6 @@ from skimage import measure, morphology
 # test morphology.remove_small_holes and remove_small_objects
 # see plotly
 
-# os.chdir("data")
-# img_list = (glob.glob('*.jpg'))
-# img_dict = {}
-# for i in img_list:
-#     if "fin_" in i:
-#         print(i)
-#         img_dict[i.split(".")[0]] = cv2.imread(i, cv2.IMREAD_UNCHANGED)
-
-# ep = img_dict["fin_ep"]
-# hct = img_dict["fin_hct"]
-# wbc = img_dict["fin_wbc"]
-
 a = np.zeros((7, 6), dtype=int)
 a[3:5, 2:4] = 1
 a[5, 4] = 1

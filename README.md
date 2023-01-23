@@ -58,7 +58,6 @@ plt.show()
 
 e = 4pi*A/P^2
 
-## Future Works
+## Cell properties
 
-* variation in epcam pre-processing
-* GUI
+hoechst ~ 40-45 pixels

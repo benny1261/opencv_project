@@ -1,4 +1,3 @@
-from threading import Thread
 import tkinter as tk
 import os
 from tkinter import messagebox
@@ -15,18 +14,12 @@ class Frame:
         self.btn = {}
         self.combobox = {}
         self.label = {}
-        self.scaler = []
+        self.scaler = {}
         self.checkbtn = {}
 
 class Window:
 
     def __init__(self):
-        # data
-        self.img_0 = None
-        self.img_1 = None
-        self.img_2 = None
-        self.img_3 = None
-
         # initializing root window
         self.root = tk.Tk()
         self.root.title("Hsu.exe")
@@ -35,6 +28,15 @@ class Window:
         self.temp_directory = os.getcwd()
         self.export_directory = os.getcwd()
         self.api = Cv_api(self)
+
+        # data
+        self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
+        self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
+        self.df, self.result = [], []
+        self.import_flag = False
+        self.th_hct, self.th_wbc, self.th_round = tk.DoubleVar(value= 0.9), tk.DoubleVar(value= 0.3), tk.DoubleVar(value= 0.7)
+        self.th_sharp, self.th_dia = tk.IntVar(value= 14000), tk.IntVar()
+        self.target, self.nontarget = tk.IntVar(), tk.IntVar()
 
         # create menu
         self.mymenu = tk.Menu(self.root)
@@ -61,20 +63,27 @@ class Window:
         self.home_fm.combobox['target'] = ttk.Combobox(self.home_fm.frame, values= ["CTC", "others..."])
         self.home_fm.combobox['target'].current(0)
         self.home_fm.btn['auto'] = tk.Button(self.home_fm.frame, text = "auto", bg="skyblue", width=8, height=2, command= self.auto)
-        self.home_fm.btn['manual'] = tk.Button(self.home_fm.frame, text = "manual", bg="gray", width=8, height=2, command= self.manual)
+        self.home_fm.btn['manual'] = tk.Button(self.home_fm.frame, text = "manual", bg="gray", width=8, height=2,
+                                            command= lambda: [self.manual(), self.fetch(0)])            # use lambda to realize multiple commands
+        self.home_fm.label['target'] = tk.Label(self.home_fm.frame, textvariable= self.target)
+        self.home_fm.label['nontarget'] = tk.Label(self.home_fm.frame, textvariable= self.nontarget)
         self.home_fm.btn['export'] = tk.Button(self.home_fm.frame, text= 'Export', bg='#FF4D40', command= lambda: self.api.export_td())
 
         # placing widgets in home frame
         tk.Label(self.home_fm.frame, text = "Fluorescent image folder").grid(row= 0, column= 0, sticky= 'W')
-        self.home_fm.btn['f_img'].grid(row= 0, column= 1)
+        self.home_fm.btn['f_img'].grid(row= 0, column= 1, columnspan= 3)
         tk.Label(self.home_fm.frame, text = "Target cell").grid(row= 1, column= 0, sticky= 'W')
-        self.home_fm.combobox['target'].grid(row= 1, column= 1, pady= 5)
+        self.home_fm.combobox['target'].grid(row= 1, column= 1, columnspan= 3, pady= 5)
         self.home_fm.frame.rowconfigure(2, minsize= 10)
         tk.Label(self.home_fm.frame, text = "Optimize thereshold").grid(row= 3, columnspan= 2, ipady= 5)
-        self.home_fm.btn['auto'].grid(row= 4, column= 0)
-        self.home_fm.btn['manual'].grid(row= 4, column= 1)
-        self.home_fm.frame.rowconfigure(5, minsize= 20)
-        self.home_fm.btn['export'].grid(row= 6, column= 1, columnspan= 2, sticky= tk.SE)
+        self.home_fm.btn['auto'].grid(row= 4, column= 0, rowspan= 2)
+        self.home_fm.btn['manual'].grid(row= 4, column= 1, rowspan= 2, sticky= 'W', padx= 20)
+        tk.Label(self.home_fm.frame, text= 'target:').grid(row= 4, column= 2, sticky= 'W')
+        tk.Label(self.home_fm.frame, text= 'nontarget:').grid(row= 5, column= 2, sticky= 'W')
+        self.home_fm.label['target'].grid(row= 4, column= 3)
+        self.home_fm.label['nontarget'].grid(row= 5, column= 3)
+        self.home_fm.frame.rowconfigure(6, minsize= 20)
+        self.home_fm.btn['export'].grid(row= 7, column= 2, columnspan= 2, sticky= tk.SE)
 
         # initializing export window,frame and its widgets
         self.export_win = tk.Toplevel(self.root)
@@ -92,13 +101,45 @@ class Window:
         self.export_fm.checkbtn['mask'] = tk.BooleanVar(value= True)
         self.export_fm.btn['destination'] = tk.Button(self.export_win, text= self.export_directory, command = self.choose_des)
         self.export_fm.btn['destination'].configure(relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
-        # export_frame.btn['save'] = tk.Button(export_win, text= 'save', command= lambda: [thread123.start(), export_win.destroy()])  # use lambda to realize multiple commands
         self.export_fm.btn['save'] = tk.Button(self.export_win, text= 'save', command= lambda: self.export_win.withdraw())
 
         # initializing manual frame and its widgets
         self.manual_fm = Frame(self.root, 'Manual Threshold', padx= 40, pady= 40)
-        self.manual_fm.scaler = tk.Scale(self.manual_fm.frame, orient= tk.HORIZONTAL, length= 600, from_= 0, to_= 255)
-        self.manual_fm.scaler.config(command= self.fetch)
+        self.manual_fm.scaler['hct'] = ttk.Scale(self.manual_fm.frame, length= 600, from_= 0, to= 1, command= self.fetch, variable= self.th_hct)
+        self.manual_fm.label['hct'] = tk.Label(self.manual_fm.frame, textvariable= self.th_hct)
+        self.manual_fm.scaler['wbc'] = ttk.Scale(self.manual_fm.frame, length= 600, from_= 0, to= 1, command= self.fetch, variable= self.th_wbc)
+        self.manual_fm.label['wbc'] = tk.Label(self.manual_fm.frame, textvariable= self.th_wbc)
+        self.manual_fm.scaler['roundness'] = ttk.Scale(self.manual_fm.frame, length= 600, from_= 0, to= 1, command= self.fetch, variable= self.th_round)
+        self.manual_fm.label['roundness'] = tk.Label(self.manual_fm.frame, textvariable= self.th_round)
+        self.manual_fm.scaler['sharpness'] = ttk.Scale(self.manual_fm.frame, length= 600, from_= 6000, to= 20000, command= self.fetch, variable= self.th_sharp)
+        self.manual_fm.label['sharpness'] = tk.Label(self.manual_fm.frame, textvariable= self.th_sharp)
+        self.manual_fm.scaler['diameter'] = ttk.Scale(self.manual_fm.frame, length= 600, from_= 0, to= 50, command= self.fetch, variable= self.th_dia)
+        self.manual_fm.label['diameter'] = tk.Label(self.manual_fm.frame, textvariable= self.th_dia)
+        self.manual_monitor = Frame(self.manual_fm.frame, 'monitor')
+        self.manual_monitor.label['target'] = tk.Label(self.manual_monitor.frame, textvariable= self.target)
+        self.manual_monitor.label['nontarget'] = tk.Label(self.manual_monitor.frame, textvariable= self.nontarget)
+
+        # placing widgets in manual frame
+        tk.Label(self.manual_fm.frame, text= 'hoechst').grid(row= 0, column= 0, sticky= 'W')
+        self.manual_fm.scaler['hct'].grid(row= 0, column = 1)
+        self.manual_fm.label['hct'].grid(row= 1, column= 1)
+        tk.Label(self.manual_fm.frame, text= 'wbc').grid(row= 2, column= 0, sticky= 'W')
+        self.manual_fm.scaler['wbc'].grid(row= 2, column = 1)
+        self.manual_fm.label['wbc'].grid(row= 3, column= 1)
+        tk.Label(self.manual_fm.frame, text= 'roundness').grid(row= 4, column= 0, sticky= 'W')
+        self.manual_fm.scaler['roundness'].grid(row= 4, column = 1)
+        self.manual_fm.label['roundness'].grid(row= 5, column= 1)
+        tk.Label(self.manual_fm.frame, text= 'sharpness').grid(row= 6, column= 0, sticky= 'W')
+        self.manual_fm.scaler['sharpness'].grid(row= 6, column = 1)
+        self.manual_fm.label['sharpness'].grid(row= 7, column= 1)
+        tk.Label(self.manual_fm.frame, text= 'diameter').grid(row= 8, column= 0, sticky= 'W')
+        self.manual_fm.scaler['diameter'].grid(row= 8, column = 1)
+        self.manual_fm.label['diameter'].grid(row= 9, column= 1)
+        self.manual_monitor.frame.grid(rowspan= 10, row= 0, column= 2, padx= 10, sticky= 'NE')
+        tk.Label(self.manual_monitor.frame, text= 'target:').grid(row= 0, column= 0, sticky= 'W')
+        tk.Label(self.manual_monitor.frame, text= 'nontarget:').grid(row= 1, column= 0, sticky= 'W')
+        self.manual_monitor.label['target'].grid(row= 0, column= 1)
+        self.manual_monitor.label['nontarget'].grid(row= 1, column= 1)
 
         self.hello()                                                                                # execute
 
@@ -106,15 +147,24 @@ class Window:
         self.root.update_idletasks()
         cord_x = (self.root.winfo_screenwidth()-self.root.winfo_width())/2
         cord_y = (self.root.winfo_screenheight()-self.root.winfo_height())/2
-        self.root.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')                                     # uses f-string mothod
+        self.root.geometry(f'+{int(cord_x)}+{int(cord_y)-100}')                                     # uses f-string method
 
 
     def auto(self):
         self.home_fm.btn['auto'].configure(bg= 'skyblue')
         self.home_fm.btn['manual'].configure(bg= 'gray')
+        if self.import_flag:
+            self.result = self.api.analysis(self.df)
+            y, n = self.api.count_target(self.result)
+            self.target.set(y)
+            self.nontarget.set(n)
 
-    def fetch(self, new_value):
-        print(int(new_value))
+    def fetch(self, var):                           # var is the value of scalebar
+        if self.import_flag:
+            self.result = self.api.analysis(self.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get())
+            y, n = self.api.count_target(self.result)
+            self.target.set(y)
+            self.nontarget.set(n)
 
     def viewer(self):
         pass
@@ -149,17 +199,23 @@ class Window:
         else:
             command()
 
+            self.import_flag = thread.flag
             # showing success or not
             if thread.flag:
-                self.home_fm.btn['export'].configure(bg= '#82D900')
+                self.home_fm.btn['export'].configure(bg='#82D900')
+
+                # pass data after thread closed
+                self.img_0, self.img_1, self.img_2, self.img_3 = thread.img_0, thread.img_1, thread.img_2, thread.img_3
+                self.pre_0, self.pre_1, self.pre_3 = thread.pre_0, thread.pre_1, thread.pre_3
+                self.df = thread.df
+
+                # update result in home frame
+                self.auto()
             else:
                 self.home_fm.btn['export'].configure(bg='#FF4D40')
+                self.target.set(0)
+                self.nontarget.set(0)
 
-            # pass data after thread closed
-            self.img_0 = thread.img_0
-            self.img_1 = thread.img_1
-            self.img_2 = thread.img_2
-            self.img_3 = thread.img_3
 
     def export_setting(self):
         '''export custumization'''
@@ -201,7 +257,7 @@ class Window:
 
             # create progress bar toplevel
             progwin = tk.Toplevel(self.root)
-            progwin.title('Importing...')
+            progwin.title('Importing and preprocessing...')
             progwin.resizable(0,0)
 
             # progress bar widget
@@ -228,7 +284,6 @@ class Window:
         # switching frames
         self.home_fm.frame.grid_forget()
         self.manual_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
-        self.manual_fm.scaler.pack()
 
         # change button color
         self.home_fm.btn['auto'].configure(bg= 'gray')

@@ -6,18 +6,37 @@ import numpy as np
 from threading import Thread
 import pandas as pd
 from skimage import measure
+import time
 
+# preprocess parameters
 BLUR_KERNAL = (5, 5)
 CLIP_LIMIT = 4
 TILEGRIDSIZE = 8
 SPLIT = 5
 BETA = 0.4
+# analysis parameters
+HCT_AREA = 42
+WBC_AREA = 60
+HCT_THRESHOLD = 0.9                                                                 # ratio, epcam-hct intersection/average hct area
+WBC_THRESHOLD = 0.3                                                                 # ratio, epcam-wbc intersection/average wbc area
+SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc
+ROUNDNESS_THRESHOLD = 0.7
+DIAMETER_THRESHOLD = (10, 30)
+# marking color
+CTC_MARK = (0,0,255)
+NONCTC_MARK = (18,153,255)
+LOWROUNDNESS_MARK = (221, 160, 221)
+BLUR_MARK = (250, 51, 153)
+MARKFONT = cv2.FONT_HERSHEY_TRIPLEX
+MARKCOORDINATE = (-30, -45)         # (x, y)
 
 class Import_thread(Thread):                                                        # define a class that inherits from 'Thread' class
     def __init__(self, path: str):
         super().__init__()                                                          # run __init__ of parent class
         self.img_list = glob.glob(os.path.join(path, "*.jpg"))
         self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
+        self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
+        self.df: pd.DataFrame
         self.flag = False
 
     def run(self):                                                                  # overwrites run() method from parent class
@@ -32,9 +51,16 @@ class Import_thread(Thread):                                                    
                 self.img_3 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
 
         if any(x is None for x in [self.img_0, self.img_1, self.img_2, self.img_3]):
-            self.flag = False
             raise IOError(FileNotFoundError, "insufficient required image")
-        self.flag = True
+
+        self.pre_0 = preprocess_full(self.img_0)
+        self.pre_1 = preprocess_rare(self.img_1)
+        self.pre_3 = preprocess_full(self.img_3)
+        if any(x is None for x in [self.pre_0, self.pre_1, self.pre_3]):
+            print("Error in preprocessing")
+        else: 
+            self.df = img2dataframe(self.pre_1, self.pre_0, self.pre_3)
+            self.flag = True
 
 
 class Cv_api:
@@ -43,45 +69,108 @@ class Cv_api:
         self.busy_flag = False
 
     def export_td(self):                                                            # needs to be able to thread repeatedly
-        if not self.busy_flag:                                                      # block creating new thread before previous one terminates
-            self.busy_flag = True
-            # establish export thread
-            thread = Thread(target= self.export)
-            thread.start()
+        if self.app.import_flag:
+            if not self.busy_flag:                                                  # block creating new thread before previous one terminates
+                self.busy_flag = True
+                # establish export thread
+                thread = Thread(target= self.export)
+                thread.start()
     
     def export(self):
-        if any(x is None for x in [self.app.img_0, self.app.img_1, self.app.img_2, self.app.img_3]):
-            print('insufficient data')
 
-        else:
-            pre_0 = preprocess_full(self.app.img_0, 0, imwrite= self.app.export_fm.checkbtn['binary0'].get(), path= self.app.export_directory)
-            pre_1 = preprocess_rare(self.app.img_1, 1, imwrite= self.app.export_fm.checkbtn['binary1'].get(), path= self.app.export_directory)
-            pre_3 = preprocess_full(self.app.img_3, 3, imwrite= self.app.export_fm.checkbtn['binary3'].get(), path= self.app.export_directory)
+        if self.app.export_fm.checkbtn['binary0'].get():
+            cv2.imwrite(os.path.join(self.app.export_directory, "binary0.jpg"), self.app.pre_0)
+        if self.app.export_fm.checkbtn['binary1'].get():
+            cv2.imwrite(os.path.join(self.app.export_directory, "binary1.jpg"), self.app.pre_1)
+        if self.app.export_fm.checkbtn['binary3'].get():
+            cv2.imwrite(os.path.join(self.app.export_directory, "binary3.jpg"), self.app.pre_3)
 
-            if self.app.home_fm.combobox['target'].get() == 'CTC':
-                df = img2dataframe(pre_1, pre_0, pre_3)
+        if self.app.home_fm.combobox['target'].get() == 'CTC':
 
-                image_postprocessing(pre_1, pre_0, pre_3, df, path= self.app.export_directory, mark= self.app.export_fm.checkbtn['mark'].get(),
-                mask= self.app.export_fm.checkbtn['mask'].get(), beta= BETA)
+            image_postprocessing(self.app.pre_1, self.app.pre_0, self.app.pre_3,
+            self.app.df, path= self.app.export_directory,
+            mark= self.app.export_fm.checkbtn['mark'].get(),
+            mask= self.app.export_fm.checkbtn['mask'].get(), beta= BETA)
 
-                with pd.ExcelWriter(os.path.join(self.app.export_directory, 'CTC.xlsx')) as writer:
-                    df.to_excel(writer)
+            with pd.ExcelWriter(os.path.join(self.app.export_directory, 'CTC.xlsx')) as writer:
+                df.to_excel(writer)
         
         self.busy_flag = False
+    
+    def analysis(self, data:pd.DataFrame, hct_thres = HCT_THRESHOLD, wbc_thres = WBC_THRESHOLD, roundness_thres = ROUNDNESS_THRESHOLD,
+                sharpness_thres = SHARPNESS_THRESHOLD, diameter_thres = DIAMETER_THRESHOLD) -> pd.DataFrame:
+        '''Quick analysis for GUI feedback'''
 
-def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray):
+        # True represents pass
+        hct = []
+        wbc = []
+        roundness = []
+        sharpness = []
+        size = []
+        target = []
+
+        for _ in data.index:
+            if data['hct_intersect'][_]/HCT_AREA >= hct_thres:
+                hct.append(True)
+            else:
+                hct.append(False)
+
+            if data['wbc_intersect'][_]/WBC_AREA < wbc_thres:
+                wbc.append(True)
+            else:
+                wbc.append(False)
+
+            if data['roundness'][_] >= roundness_thres:
+                roundness.append(True)
+            else:
+                roundness.append(False)
+            
+            if data['wbc_sharpness'][_] >= sharpness_thres:
+                sharpness.append(True)
+            else:
+                sharpness.append(False)
+            
+            if [(data['max_diameter'][_] >= diameter_thres[0]) & (data['max_diameter'] <= diameter_thres[1])]:
+                size.append(True)
+            else:
+                size.append(False)
+            
+            check = [hct[-1], wbc[-1], roundness[-1], sharpness[-1], size[-1]]
+            if any(x == False for x in check):
+                target.append(False)
+            else:
+                target.append(True)
+
+        result = {
+            "hoechst":hct,
+            "wbc":wbc,
+            "roundness":roundness,
+            "sharpness":sharpness,
+            "size":size,
+            "target":target
+        }
+        return pd.DataFrame(result)
+
+    def count_target(self, dataframe:pd.DataFrame) -> int:
+        '''A 'target' column in dataframe required'''
+        target_amount = dataframe['target'].sum()
+        nontarget_amount = (~dataframe['target']).sum()
+        return target_amount, nontarget_amount
+
+
+def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray) -> pd.DataFrame:
     '''find contours from epcam img, calculate properties of each one and store in dataframe, 
 also optional marks on exported image, parameter img should be grayscale\n
 @ret pandas dataframe'''
     labeled = measure.label(ep_img, connectivity= 2)
     properties = measure.regionprops(labeled)
     ROI = 60
-    HCT_THRESHOLD = 20                                                                  # pixels of epcam-hct intersection
-    WBC_THRESHOLD = 0.5                                                                 # ratio, epcam-wbc intersection/epcam
     # cellsize = 12^2~25^2
     center = []
+    area = []
     roundness = []
     max_diameter = []
+    roi = []
     hct = []
     wbc = []
     wbc_sharpness = []                                                                  # lower means more blur
@@ -89,34 +178,33 @@ also optional marks on exported image, parameter img should be grayscale\n
     for prop in properties:
         cy, cx = map(round, prop.centroid)                  # (x, y)
         center.append((cx, cy))
+        area.append(prop.area)
         roundness.append(4*math.pi*prop.area/prop.perimeter_crofton**2)
         max_diameter.append(prop.feret_diameter_max)
+        roi.append(prop.slice)
 
-        # detection of intersection in ROI
-        eproi = ep_img[prop.slice]
-        hctroi = hct_img[prop.slice]
-        wbcroi = wbc_img[prop.slice]
         fuzzyroi = wbc_img[cy-int(ROI/2):cy+int(ROI/2), cx-int(ROI/2):cx+int(ROI/2)]        # check if wbc too fuzzy
         howblur = cv2.Laplacian(fuzzyroi, cv2.CV_64F).var()
         wbc_sharpness.append(howblur)
-        
-        intersection_1 = cv2.bitwise_and(eproi, hctroi)
-        intersection_2 = cv2.bitwise_and(eproi, wbcroi)
-        if np.count_nonzero(intersection_1) >= HCT_THRESHOLD:
-            hct.append(True)
-        else:
-            hct.append(False)
-        if np.count_nonzero(intersection_2)/np.count_nonzero(eproi) >= WBC_THRESHOLD:
-            wbc.append(True)
-        else:
-            wbc.append(False)
+
+        # detection of intersection in ROI
+        eproi = prop.image
+        hctroi = hct_img[prop.slice]
+        wbcroi = wbc_img[prop.slice]
+
+        intersection_01 = np.logical_and(eproi, hctroi)
+        intersection_13 = np.logical_and(eproi, wbcroi)
+        hct.append(np.count_nonzero(intersection_01))
+        wbc.append(np.count_nonzero(intersection_13))
 
     data = {
         "center":center,
+        "area":area,
         "roundness":roundness,
         "max_diameter":max_diameter,
-        "hct":hct,
-        "wbc":wbc,
+        "roi":roi,
+        "hct_intersect":hct,
+        "wbc_intersect":wbc,
         "wbc_sharpness":wbc_sharpness
     }
     return pd.DataFrame(data)
@@ -125,15 +213,6 @@ also optional marks on exported image, parameter img should be grayscale\n
 def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, path: str, mark= False, mask= False, beta = BETA):
     '''mark -> add mark on merge image\n
     mask -> only mark no background'''
-    SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc
-    ROUNDNESS_THRESHOLD = 0.7
-
-    CTC_MARK = (0,0,255)
-    NONCTC_MARK = (18,153,255)
-    LOWROUNDNESS_MARK = (221, 160, 221)
-    BLUR_MARK = (250, 51, 153)
-    MARKFONT = cv2.FONT_HERSHEY_TRIPLEX
-    MARKCOORDINATE = (-30, -45)         # (x, y)
 
     RGBep = np.dstack((ep_img, ep_img, ep_img))                                         # white
     RGBhct = np.dstack((hct_img, np.zeros_like(hct_img), np.zeros_like(hct_img)))       # blue
@@ -215,7 +294,7 @@ def crop(img: np.ndarray):
     return masked
 
 
-def preprocess_rare(img: np.ndarray, channel: int, imwrite: bool, path: str, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
+def preprocess_rare(img: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
 
     clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
 
@@ -224,13 +303,11 @@ def preprocess_rare(img: np.ndarray, channel: int, imwrite: bool, path: str, cli
     _, th = cv2.threshold(img, ret, 255, cv2.THRESH_BINARY)
     a = erode_dilate(th)
     fin = crop(a)
-    if imwrite:
-        cv2.imwrite(os.path.join(path, f"binary{channel}.jpg"), fin)
     
     return fin
 
 
-def preprocess_full(img: np.ndarray, channel: int, imwrite: bool, path: str, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
+def preprocess_full(img: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
 
     clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
 
@@ -242,28 +319,36 @@ def preprocess_full(img: np.ndarray, channel: int, imwrite: bool, path: str, cli
         ret, subimg_th = otsu_th(subimg_clahe, blur_kernal)
         split[iter[0]][iter[1]] = erode_dilate(subimg_th)
     fin = crop(np.block(split))
-    if imwrite:
-        cv2.imwrite(os.path.join(path, f"binary{channel}.jpg"), fin)
 
     return fin
 
 if __name__ == '__main__':
 
-    os.chdir("data")
-    img_list = glob.glob('*.jpg')
-    img_dict = {}
+    DATADIRECTORY = "data"
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+    os.chdir(root_dir)
+    data_dir = os.path.join(os.getcwd(), DATADIRECTORY)
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+    img_list = glob.glob(os.path.join(DATADIRECTORY, "*.jpg"))
+
     for i in img_list:
-        if "fin_" in i:
-            print(i)
-            img_dict[i.split(".")[0]] = cv2.imread(i, cv2.IMREAD_UNCHANGED)
+        if '_0.jpg' in i:
+            hct = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+        elif '_1.jpg' in i:
+            epcam = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+        elif '_3.jpg' in i:
+            wbc = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+    
+    pre_0 = preprocess_full(hct, 0, imwrite= False, path= DATADIRECTORY)
+    pre_1 = preprocess_rare(epcam, 1, imwrite= False, path= DATADIRECTORY)
+    pre_3 = preprocess_full(wbc, 3, imwrite= False, path= DATADIRECTORY)
 
-    ep = img_dict["fin_ep"]
-    hct = img_dict["fin_hct"]
-    wbc = img_dict["fin_wbc"]
-
-    df = img2dataframe(ep, hct, wbc)
-    image_postprocessing(ep, hct, wbc, df, transparent= True)
-    with pd.ExcelWriter("x.xlsx") as writer:
-        df.to_excel(writer)
+    df = img2dataframe(pre_1, pre_0, pre_3)
+    start_time = time.time()
+    api = Cv_api(None)
+    api.analysis(df)
+    end_time = time.time()
+    print('analysis time = ', end_time-start_time)
 
     cv2.waitKey(0)
