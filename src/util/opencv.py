@@ -21,7 +21,7 @@ HCT_THRESHOLD = 0.9                                                             
 WBC_THRESHOLD = 0.3                                                                 # ratio, epcam-wbc intersection/average wbc area
 SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc
 ROUNDNESS_THRESHOLD = 0.7
-DIAMETER_THRESHOLD = (10, 30)
+DIAMETER_THRESHOLD = (10, 27)
 # marking color
 CTC_MARK = (0,0,255)
 NONCTC_MARK = (18,153,255)
@@ -88,12 +88,14 @@ class Cv_api:
         if self.app.home_fm.combobox['target'].get() == 'CTC':
 
             image_postprocessing(self.app.pre_1, self.app.pre_0, self.app.pre_3,
-            self.app.df, path= self.app.export_directory,
+            self.app.df, self.app.result, path= self.app.export_directory,
             mark= self.app.export_fm.checkbtn['mark'].get(),
             mask= self.app.export_fm.checkbtn['mask'].get(), beta= BETA)
 
-            with pd.ExcelWriter(os.path.join(self.app.export_directory, 'CTC.xlsx')) as writer:
-                df.to_excel(writer)
+            with pd.ExcelWriter(os.path.join(self.app.export_directory, 'data.xlsx')) as writer:
+                self.app.df.to_excel(writer)
+            with pd.ExcelWriter(os.path.join(self.app.export_directory, 'result.xlsx')) as writer:
+                self.app.result.to_excel(writer)
         
         self.busy_flag = False
     
@@ -108,6 +110,8 @@ class Cv_api:
         sharpness = []
         size = []
         target = []
+
+        diameter_index = data.query('max_diameter >= @diameter_thres[0]').query('max_diameter <= @diameter_thres[1]').index.tolist()
 
         for _ in data.index:
             if data['hct_intersect'][_]/HCT_AREA >= hct_thres:
@@ -130,7 +134,7 @@ class Cv_api:
             else:
                 sharpness.append(False)
             
-            if [(data['max_diameter'][_] >= diameter_thres[0]) & (data['max_diameter'] <= diameter_thres[1])]:
+            if _ in diameter_index:
                 size.append(True)
             else:
                 size.append(False)
@@ -165,7 +169,6 @@ also optional marks on exported image, parameter img should be grayscale\n
     labeled = measure.label(ep_img, connectivity= 2)
     properties = measure.regionprops(labeled)
     ROI = 60
-    # cellsize = 12^2~25^2
     center = []
     area = []
     roundness = []
@@ -210,8 +213,10 @@ also optional marks on exported image, parameter img should be grayscale\n
     return pd.DataFrame(data)
 
 
-def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, path: str, mark= False, mask= False, beta = BETA):
-    '''mark -> add mark on merge image\n
+def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, result: pd.DataFrame,
+                         path: str, mark= False, mask= False, beta = BETA):
+    '''takes both information and result dataframe as input\n
+    mark -> add mark on merge image\n
     mask -> only mark no background'''
 
     RGBep = np.dstack((ep_img, ep_img, ep_img))                                         # white
@@ -233,13 +238,8 @@ def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.nd
     for _ in df.index:
         center = df['center'][_]
         e = df['roundness'][_]
-        sharpness = df['wbc_sharpness'][_]
-        if sharpness < SHARPNESS_THRESHOLD:
-            color = BLUR_MARK
-        elif (df['hct'][_]) & (not df['wbc'][_]):
-            if e < ROUNDNESS_THRESHOLD:
-                color = LOWROUNDNESS_MARK
-            else: color = CTC_MARK
+        if result['target'][_]:
+            color = CTC_MARK
         else:
             color = NONCTC_MARK
 

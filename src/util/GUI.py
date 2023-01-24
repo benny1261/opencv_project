@@ -3,7 +3,7 @@ import os
 from tkinter import messagebox
 from tkinter import filedialog
 from tkinter import ttk
-# from PIL import ImageTk
+from tkSliderWidget import Slider
 from opencv import Import_thread
 from opencv import Cv_api
 
@@ -35,7 +35,7 @@ class Window:
         self.df, self.result = [], []
         self.import_flag = False
         self.th_hct, self.th_wbc, self.th_round = tk.DoubleVar(value= 0.9), tk.DoubleVar(value= 0.3), tk.DoubleVar(value= 0.7)
-        self.th_sharp, self.th_dia = tk.IntVar(value= 14000), tk.IntVar()
+        self.th_sharp = tk.IntVar(value= 14000)
         self.target, self.nontarget = tk.IntVar(), tk.IntVar()
 
         # create menu
@@ -113,8 +113,9 @@ class Window:
         self.manual_fm.label['roundness'] = tk.Label(self.manual_fm.frame, textvariable= self.th_round)
         self.manual_fm.scaler['sharpness'] = ttk.Scale(self.manual_fm.frame, length= 600, from_= 6000, to= 20000, command= self.fetch, variable= self.th_sharp)
         self.manual_fm.label['sharpness'] = tk.Label(self.manual_fm.frame, textvariable= self.th_sharp)
-        self.manual_fm.scaler['diameter'] = ttk.Scale(self.manual_fm.frame, length= 600, from_= 0, to= 50, command= self.fetch, variable= self.th_dia)
-        self.manual_fm.label['diameter'] = tk.Label(self.manual_fm.frame, textvariable= self.th_dia)
+        self.manual_fm.scaler['diameter'] = Slider(self.manual_fm.frame, width= 600, height= 40, min_val= 0, max_val= 50, init_lis=[10, 27],
+                                            show_value= True, removable= False, addable= False)
+        self.manual_fm.scaler['diameter'].setValueChageCallback(lambda vals: self.fetch(vals))
         self.manual_monitor = Frame(self.manual_fm.frame, 'monitor')
         self.manual_monitor.label['target'] = tk.Label(self.manual_monitor.frame, textvariable= self.target)
         self.manual_monitor.label['nontarget'] = tk.Label(self.manual_monitor.frame, textvariable= self.nontarget)
@@ -134,8 +135,7 @@ class Window:
         self.manual_fm.label['sharpness'].grid(row= 7, column= 1)
         tk.Label(self.manual_fm.frame, text= 'diameter').grid(row= 8, column= 0, sticky= 'W')
         self.manual_fm.scaler['diameter'].grid(row= 8, column = 1)
-        self.manual_fm.label['diameter'].grid(row= 9, column= 1)
-        self.manual_monitor.frame.grid(rowspan= 10, row= 0, column= 2, padx= 10, sticky= 'NE')
+        self.manual_monitor.frame.grid(rowspan= 9, row= 0, column= 2, padx= 10, sticky= 'NE')
         tk.Label(self.manual_monitor.frame, text= 'target:').grid(row= 0, column= 0, sticky= 'W')
         tk.Label(self.manual_monitor.frame, text= 'nontarget:').grid(row= 1, column= 0, sticky= 'W')
         self.manual_monitor.label['target'].grid(row= 0, column= 1)
@@ -161,7 +161,8 @@ class Window:
 
     def fetch(self, var):                           # var is the value of scalebar
         if self.import_flag:
-            self.result = self.api.analysis(self.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get())
+            self.result = self.api.analysis(self.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get(),
+                            sharpness_thres= self.th_sharp.get(), diameter_thres= self.manual_fm.scaler['diameter'].getValues())
             y, n = self.api.count_target(self.result)
             self.target.set(y)
             self.nontarget.set(n)
