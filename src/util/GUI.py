@@ -60,7 +60,7 @@ class Window:
         self.home_fm = Frame(self.root, "Home", padx= 20, pady= 10)
         self.home_fm.btn['f_img'] = tk.Button(self.home_fm.frame, command =lambda: self.choose_filefolder())
         self.home_fm.btn['f_img'].configure(relief= tk.SUNKEN, width= 20, bg= 'White', fg= 'gray', activebackground= 'White', activeforeground= 'gray')        
-        self.home_fm.combobox['target'] = ttk.Combobox(self.home_fm.frame, values= ["CTC", "others..."])
+        self.home_fm.combobox['target'] = ttk.Combobox(self.home_fm.frame, values= ["CTC", "others..."], state= 'readonly')
         self.home_fm.combobox['target'].current(0)
         self.home_fm.btn['auto'] = tk.Button(self.home_fm.frame, text = "auto", bg="skyblue", width=8, height=2, command= self.auto)
         self.home_fm.btn['manual'] = tk.Button(self.home_fm.frame, text = "manual", bg="gray", width=8, height=2,
