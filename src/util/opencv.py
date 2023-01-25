@@ -245,13 +245,13 @@ def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.nd
 
         if mark:
             cv2.circle(final, center, 30, color, 2)
-            cv2.putText(final, f'{_+1}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),        # label index starts from 1
+            cv2.putText(final, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),        # label index starts from 1
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
             cv2.putText(final, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
             fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
         if mask:
             cv2.circle(bg, center, 30, color, 2)
-            cv2.putText(bg, f'{_+1}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
+            cv2.putText(bg, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
             cv2.putText(bg, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
             fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
