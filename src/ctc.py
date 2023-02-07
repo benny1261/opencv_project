@@ -31,18 +31,22 @@ for i in img_list:
         wbc = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
 
 # df
-pre_0 = cv.preprocess_full(hct, 0, imwrite= False, path= DATADIRECTORY)
-pre_1 = cv.preprocess_rare(epcam, 1, imwrite= False, path= DATADIRECTORY)
-pre_3 = cv.preprocess_full(wbc, 3, imwrite= False, path= DATADIRECTORY)
+pre_0 = cv.preprocess_full(hct, 16)
+pre_1 = cv.preprocess_rare(epcam, 81)
+pre_3 = cv.preprocess_full(wbc, 26)
+
+cv2.imwrite(os.path.join(DATADIRECTORY, "binary0n.jpg"), pre_0)
+cv2.imwrite(os.path.join(DATADIRECTORY, "binary1n.jpg"), pre_1)
+cv2.imwrite(os.path.join(DATADIRECTORY, "binary3n.jpg"), pre_3)
 
 # provide dataframe and export image ======================================================
-print("creating dataframe")
-df = cv.img2dataframe(pre_1, pre_0, pre_3)
-print("post-processing")
-cv.image_postprocessing(pre_1, pre_0, pre_3, df, path= DATADIRECTORY, mark= MARK, mask= MASK, beta= BETA)
+# print("creating dataframe")
+# df = cv.img2dataframe(pre_1, pre_0, pre_3)
+# print("post-processing")
+# cv.image_postprocessing(pre_1, pre_0, pre_3, df, path= DATADIRECTORY, mark= MARK, mask= MASK, beta= BETA)
 
-with pd.ExcelWriter(os.path.join(DATADIRECTORY, "CTC.xlsx")) as writer:
-    df.to_excel(writer)
+# with pd.ExcelWriter(os.path.join(DATADIRECTORY, "CTC.xlsx")) as writer:
+#     df.to_excel(writer)
 
 end_time = time.time()
 print("++++++++++++++++++++++++++++++++++++++++++")

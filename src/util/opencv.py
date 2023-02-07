@@ -5,7 +5,7 @@ import os
 import numpy as np
 from threading import Thread
 import pandas as pd
-from skimage import measure
+from skimage import measure, morphology
 import time
 
 # preprocess parameters
@@ -13,6 +13,9 @@ BLUR_KERNAL = (5, 5)
 CLIP_LIMIT = 4
 TILEGRIDSIZE = 8
 SPLIT = 5
+ELIM_HCT_SIZE = 16
+ELIM_EPCAM_SIZE = 81
+ELIM_WBC_SIZE = 26
 BETA = 0.4
 # analysis parameters
 HCT_AREA = 42
@@ -53,9 +56,9 @@ class Import_thread(Thread):                                                    
         if any(x is None for x in [self.img_0, self.img_1, self.img_2, self.img_3]):
             raise IOError(FileNotFoundError, "insufficient required image")
 
-        self.pre_0 = preprocess_full(self.img_0)
-        self.pre_1 = preprocess_rare(self.img_1)
-        self.pre_3 = preprocess_full(self.img_3)
+        self.pre_0 = preprocess_full(self.img_0, ELIM_HCT_SIZE)
+        self.pre_1 = preprocess_rare(self.img_1, ELIM_EPCAM_SIZE)
+        self.pre_3 = preprocess_full(self.img_3, ELIM_WBC_SIZE)
         if any(x is None for x in [self.pre_0, self.pre_1, self.pre_3]):
             print("Error in preprocessing")
         else: 
@@ -286,28 +289,30 @@ def erode_dilate(img: np.ndarray, kernal_size= 3, iterations= 2):
 
 
 def crop(img: np.ndarray):
+    only01 = np.where(img>=1, 255, 0).astype(np.uint8)
     block = int(np.floor(img.shape[0]/5))
     radius = int(block*1.5*math.sqrt(2))
     center = int(np.floor(img.shape[0]/2))
-    mask = cv2.circle(np.zeros_like(img), (center, center), radius, (255, 255, 255), -1)
-    masked = cv2.bitwise_and(img, mask)
+    mask = cv2.circle(np.zeros_like(only01), (center, center), radius, (255, 255, 255), -1)
+    masked = cv2.bitwise_and(only01, mask)
     return masked
 
 
-def preprocess_rare(img: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
+def preprocess_rare(img: np.ndarray, small_object: int, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
 
     clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
 
     img_clahe = clahe.apply(img)
     ret, a = otsu_th(img_clahe, blur_kernal)                                        # use otsu's threshold but use original image for thresholding
     _, th = cv2.threshold(img, ret, 255, cv2.THRESH_BINARY)
-    a = erode_dilate(th)
-    fin = crop(a)
+    labeled = measure.label(th, connectivity= 2)
+    labeled = morphology.remove_small_objects(labeled, min_size= small_object, connectivity= 2, out= labeled)
+    fin = crop(labeled)
     
     return fin
 
 
-def preprocess_full(img: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
+def preprocess_full(img: np.ndarray, small_object: int, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
 
     clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
 
@@ -317,10 +322,40 @@ def preprocess_full(img: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGR
         subimg = split[iter[0]][iter[1]]
         subimg_clahe = clahe.apply(subimg)
         ret, subimg_th = otsu_th(subimg_clahe, blur_kernal)
-        split[iter[0]][iter[1]] = erode_dilate(subimg_th)
+        labeled = measure.label(subimg_th, connectivity= 2)
+        split[iter[0]][iter[1]] = morphology.remove_small_objects(labeled, min_size= small_object, connectivity= 2)
     fin = crop(np.block(split))
 
     return fin
+
+
+# def preprocess_rare(img: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):    # old method
+
+#     clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
+
+#     img_clahe = clahe.apply(img)
+#     ret, a = otsu_th(img_clahe, blur_kernal)                                        # use otsu's threshold but use original image for thresholding
+#     _, th = cv2.threshold(img, ret, 255, cv2.THRESH_BINARY)
+#     a = erode_dilate(th)
+#     fin = crop(a)
+    
+#     return fin
+
+
+# def preprocess_full(img: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):    # old method
+
+#     clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
+
+#     split = [np.array_split(_, SPLIT, 1) for _ in np.array_split(img, SPLIT)]       # list comprehension
+
+#     for iter in np.ndindex((len(split), len(split[:]))):
+#         subimg = split[iter[0]][iter[1]]
+#         subimg_clahe = clahe.apply(subimg)
+#         ret, subimg_th = otsu_th(subimg_clahe, blur_kernal)
+#         split[iter[0]][iter[1]] = erode_dilate(subimg_th)
+#     fin = crop(np.block(split))
+
+#     return fin
 
 if __name__ == '__main__':
 
