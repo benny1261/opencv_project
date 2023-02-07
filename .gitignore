@@ -1,2 +1,4 @@
 data/*
 src/util/__pycache__/*
+*.DSStore
+*.swp
