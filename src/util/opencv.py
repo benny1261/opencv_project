@@ -95,10 +95,12 @@ class Cv_api:
             mark= self.app.export_fm.checkbtn['mark'].get(),
             mask= self.app.export_fm.checkbtn['mask'].get(), beta= BETA)
 
-            with pd.ExcelWriter(os.path.join(self.app.export_directory, 'data.xlsx')) as writer:
-                self.app.df.to_excel(writer)
-            with pd.ExcelWriter(os.path.join(self.app.export_directory, 'result.xlsx')) as writer:
-                self.app.result.to_excel(writer)
+            if self.app.export_fm.checkbtn['raw_data'].get():
+                with pd.ExcelWriter(os.path.join(self.app.export_directory, 'data.xlsx')) as writer:
+                    self.app.df.to_excel(writer)
+            if self.app.export_fm.checkbtn['result_data'].get():
+                with pd.ExcelWriter(os.path.join(self.app.export_directory, 'result.xlsx')) as writer:
+                    self.app.result.to_excel(writer)
         
         self.busy_flag = False
     

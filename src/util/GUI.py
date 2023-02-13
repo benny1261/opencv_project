@@ -16,6 +16,7 @@ class Frame:
         self.label = {}
         self.scaler = {}
         self.checkbtn = {}
+        self.treeview = []
 
 class Window:
 
@@ -43,13 +44,13 @@ class Window:
         self.root.config(menu= self.mymenu)                                                         # bound "self.mymenu" to root window
         # create menu items
         self.file_menu= tk.Menu(self.mymenu, tearoff= 0)                                            # create "file" submenu under self.mymenu, tearoff= 0 to remove slash
-        self.file_menu.add_command(label= "Home", command= self.home)
+        self.file_menu.add_command(label= "Home", command= lambda: self.clean(True))
         self.file_menu.add_command(label= "Choose CWD", command= self.choose_cwd)
         self.file_menu.add_command(label= "Export settings", command = self.export_setting)
         self.file_menu.add_separator()                                                              # create divider
         self.file_menu.add_command(label= "Exit", command= self.root.quit)
         self.view_menu= tk.Menu(self.mymenu, tearoff= 0)
-        self.view_menu.add_command(label= "CWD Images", command= self.viewer)
+        self.view_menu.add_command(label= "TreeView", command= self.viewer)
         self.mymenu.add_cascade(label= "File", menu= self.file_menu)
         self.mymenu.add_cascade(label= "View", menu= self.view_menu)
 
@@ -58,7 +59,7 @@ class Window:
 
         # initializing home frame and its widgets
         self.home_fm = Frame(self.root, "Home", padx= 20, pady= 10)
-        self.home_fm.btn['f_img'] = tk.Button(self.home_fm.frame, command =lambda: self.choose_filefolder())
+        self.home_fm.btn['f_img'] = tk.Button(self.home_fm.frame, command= lambda: self.choose_filefolder())
         self.home_fm.btn['f_img'].configure(relief= tk.SUNKEN, width= 20, bg= 'White', fg= 'gray', activebackground= 'White', activeforeground= 'gray')        
         self.home_fm.combobox['target'] = ttk.Combobox(self.home_fm.frame, values= ["CTC", "others..."], state= 'readonly')
         self.home_fm.combobox['target'].current(0)
@@ -99,6 +100,8 @@ class Window:
         self.export_fm.checkbtn['binary3'] = tk.BooleanVar(value= False)
         self.export_fm.checkbtn['mark'] = tk.BooleanVar(value= False)
         self.export_fm.checkbtn['mask'] = tk.BooleanVar(value= True)
+        self.export_fm.checkbtn['raw_data'] = tk.BooleanVar(value= False)
+        self.export_fm.checkbtn['result_data'] = tk.BooleanVar(value= True)
         self.export_fm.btn['destination'] = tk.Button(self.export_win, text= self.export_directory, command = self.choose_des)
         self.export_fm.btn['destination'].configure(relief= tk.SUNKEN, width= 50, bg= 'White', anchor= 'w', fg= 'gray', activebackground= 'White', activeforeground= 'gray')
         self.export_fm.btn['save'] = tk.Button(self.export_win, text= 'save', command= lambda: self.export_win.withdraw())
@@ -141,7 +144,36 @@ class Window:
         self.manual_monitor.label['target'].grid(row= 0, column= 1)
         self.manual_monitor.label['nontarget'].grid(row= 1, column= 1)
 
-        self.hello()                                                                                # execute
+        # initializing view frame and its widgets
+        self.view_fm = Frame(self.root, 'tree view', padx= 10, pady= 10)
+        self.view_fm.treeview = ttk.Treeview(self.view_fm.frame)
+        # define columns
+        self.view_fm.treeview['columns'] = ("ID", "hct", "wbc", "roundness", "sharpness", "size")
+        self.view_fm.treeview.column("#0", width= 0, stretch= False)
+        self.view_fm.treeview.column("ID", anchor= 'w', width= 50)
+        self.view_fm.treeview.column("hct", anchor= 'w', width= 100)
+        self.view_fm.treeview.column("wbc", anchor= 'w', width= 100)
+        self.view_fm.treeview.column("roundness", anchor= 'w', width= 100)
+        self.view_fm.treeview.column("sharpness", anchor= 'w', width= 100)
+        self.view_fm.treeview.column("size", anchor= 'w', width= 100)
+        # create headings
+        self.view_fm.treeview.heading("#0", text= "")
+        self.view_fm.treeview.heading("ID", text= "ID", anchor= 'w')
+        self.view_fm.treeview.heading("hct", text= "hct", anchor= 'w')
+        self.view_fm.treeview.heading("wbc", text= "wbc", anchor= 'w')
+        self.view_fm.treeview.heading("roundness", text= "roundness", anchor= 'w')
+        self.view_fm.treeview.heading("sharpness", text= "sharpness", anchor= 'w')
+        self.view_fm.treeview.heading("size", text= "size", anchor= 'w')
+
+        self.zoom_fm = Frame(self.root, 'zoom view', padx= 20, pady= 20)
+
+        # placing widgets in view frame
+        self.view_fm.treeview.pack()
+
+        # place home frame
+        self.home_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
+        # place status bar in root
+        self.root.stat_bar.grid(row= 1, column= 0, sticky="W"+"E")
 
         # initializing window position
         self.root.update_idletasks()
@@ -168,7 +200,8 @@ class Window:
             self.nontarget.set(n)
 
     def viewer(self):
-        pass
+        self.clean()
+        self.view_fm.frame.grid(row= 0, column= 0)
 
     def on_closing(self):
         '''Command triggered when user close window directly'''
@@ -176,15 +209,16 @@ class Window:
         if messagebox.askokcancel("quit", "Confirm quit?"):
             self.root.quit()
 
-    def home(self):
+    def clean(self, home= False):
         '''return frame to home page'''
         for children in self.root.winfo_children():
-            try:
-                children.grid_forget()
-            except:
-                children.withdraw()                                                             # in case children is a toplevel
-
-        self.hello()
+            if children is not self.root.stat_bar:
+                try:
+                    children.grid_forget()
+                except:
+                    children.withdraw()                                                             # in case children is a toplevel
+        if home:
+            self.home_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
     
     def choose_cwd(self):
         '''Let user select directory where they import data'''
@@ -217,7 +251,6 @@ class Window:
                 self.target.set(0)
                 self.nontarget.set(0)
 
-
     def export_setting(self):
         '''export custumization'''
 
@@ -234,6 +267,8 @@ class Window:
         tk.Checkbutton(self.export_fm.frame, text= 'binary3', variable= self.export_fm.checkbtn['binary3']).grid(row= 1, column= 1)
         tk.Checkbutton(self.export_fm.frame, text= 'mark', variable= self.export_fm.checkbtn['mark']).grid(row= 0, column= 2)
         tk.Checkbutton(self.export_fm.frame, text= 'mask', variable= self.export_fm.checkbtn['mask']).grid(row= 1, column= 2)
+        tk.Checkbutton(self.export_fm.frame, text= 'raw data', variable= self.export_fm.checkbtn['raw_data']).grid(row= 0, column= 3)
+        tk.Checkbutton(self.export_fm.frame, text= 'result data', variable= self.export_fm.checkbtn['result_data']).grid(row= 1, column= 3)
 
         # widgets below frame
         tk.Label(self.export_win, text = "destination:", padx= 10).grid(row= 1, column= 0)
@@ -290,14 +325,6 @@ class Window:
         self.home_fm.btn['auto'].configure(bg= 'gray')
         self.home_fm.btn['manual'].configure(bg= 'skyblue')
 
-    def hello(self):
-        '''Starting GUI program'''
-
-        # place home frame
-        self.home_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
-
-        # place status bar in root
-        self.root.stat_bar.grid(row= 1, column= 0, sticky="W"+"E")
 
 if __name__ == '__main__':
     prog = Window()
