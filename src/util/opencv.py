@@ -109,56 +109,15 @@ class Cv_api:
         '''Quick analysis for GUI feedback'''
 
         # True represents pass
-        hct = []
-        wbc = []
-        roundness = []
-        sharpness = []
-        size = []
-        target = []
+        result = pd.DataFrame()
+        result['hoechst'] = data['hct_intersect']/HCT_AREA >= hct_thres
+        result['wbc'] = data['wbc_intersect']/WBC_AREA < wbc_thres
+        result['roundness'] = data['roundness'] >= roundness_thres
+        result['sharpness'] = data['wbc_sharpness'] >= sharpness_thres
+        result['size'] = (data['max_diameter'] >= diameter_thres[0]) & (data['max_diameter'] <= diameter_thres[1])
+        result['target'] = result.all(axis= 'columns')
 
-        diameter_index = data.query('max_diameter >= @diameter_thres[0]').query('max_diameter <= @diameter_thres[1]').index.tolist()
-
-        for _ in data.index:
-            if data['hct_intersect'][_]/HCT_AREA >= hct_thres:
-                hct.append(True)
-            else:
-                hct.append(False)
-
-            if data['wbc_intersect'][_]/WBC_AREA < wbc_thres:
-                wbc.append(True)
-            else:
-                wbc.append(False)
-
-            if data['roundness'][_] >= roundness_thres:
-                roundness.append(True)
-            else:
-                roundness.append(False)
-            
-            if data['wbc_sharpness'][_] >= sharpness_thres:
-                sharpness.append(True)
-            else:
-                sharpness.append(False)
-            
-            if _ in diameter_index:
-                size.append(True)
-            else:
-                size.append(False)
-            
-            check = [hct[-1], wbc[-1], roundness[-1], sharpness[-1], size[-1]]
-            if any(x == False for x in check):
-                target.append(False)
-            else:
-                target.append(True)
-
-        result = {
-            "hoechst":hct,
-            "wbc":wbc,
-            "roundness":roundness,
-            "sharpness":sharpness,
-            "size":size,
-            "target":target
-        }
-        return pd.DataFrame(result)
+        return result
 
     def count_target(self, dataframe:pd.DataFrame) -> int:
         '''A 'target' column in dataframe required'''
