@@ -6,6 +6,7 @@ from tkinter import ttk
 from tkSliderWidget import Slider
 from opencv import Import_thread
 from opencv import Cv_api
+import pandas as pd
 
 class Frame:
     def __init__(self, window, fmname: str = None, padx= 30, pady= 30):
@@ -17,6 +18,7 @@ class Frame:
         self.scaler = {}
         self.checkbtn = {}
         self.treeview = []
+        self.scrollbar = []
 
 class Window:
 
@@ -145,8 +147,10 @@ class Window:
         self.manual_monitor.label['nontarget'].grid(row= 1, column= 1)
 
         # initializing view frame and its widgets
-        self.view_fm = Frame(self.root, 'tree view', padx= 10, pady= 10)
-        self.view_fm.treeview = ttk.Treeview(self.view_fm.frame)
+        self.view_fm = Frame(self.root, 'tree view')
+        self.view_fm.scrollbar = tk.Scrollbar(self.view_fm.frame)
+        self.view_fm.treeview = ttk.Treeview(self.view_fm.frame, yscrollcommand= self.view_fm.scrollbar.set, selectmode= 'browse')
+        self.view_fm.scrollbar.config(command= self.view_fm.treeview.yview)
         # define columns
         self.view_fm.treeview['columns'] = ("ID", "hct", "wbc", "roundness", "sharpness", "size")
         self.view_fm.treeview.column("#0", width= 0, stretch= False)
@@ -165,10 +169,17 @@ class Window:
         self.view_fm.treeview.heading("sharpness", text= "sharpness", anchor= 'w')
         self.view_fm.treeview.heading("size", text= "size", anchor= 'w')
 
-        self.zoom_fm = Frame(self.root, 'zoom view', padx= 20, pady= 20)
+        # set style of treeview
+        # style = ttk.Style()
+        # style.configure("Treeview", background= "#D3D3D3", forground= "purple", fieldbackground= "#D3D3D3")
+        self.view_fm.treeview.tag_configure('nontarget', background= "#E1C4C4")
+        self.view_fm.treeview.tag_configure('target', background= "#B3D9D9")
 
         # placing widgets in view frame
-        self.view_fm.treeview.pack()
+        self.view_fm.treeview.grid(row= 0, column= 0)
+        self.view_fm.scrollbar.grid(row= 0, column= 1, sticky= 'nsw')
+
+        # self.zoom_fm = Frame(self.root, 'zoom view', padx= 20, pady= 20)
 
         # place home frame
         self.home_fm.frame.grid(row= 0, column= 0, padx= 10, pady= 5)
@@ -246,6 +257,10 @@ class Window:
 
                 # update result in home frame
                 self.auto()
+                
+                # pass data to treeview
+                self.treeview_data(self.result)
+
             else:
                 self.home_fm.btn['export'].configure(bg='#FF4D40')
                 self.target.set(0)
@@ -324,6 +339,17 @@ class Window:
         # change button color
         self.home_fm.btn['auto'].configure(bg= 'gray')
         self.home_fm.btn['manual'].configure(bg= 'skyblue')
+
+    def treeview_data(self, data: pd.DataFrame):
+        '''pass data in dataframe to treeview'''
+        for row in data.itertuples():
+            # print(row)        # out: Pandas(Index=59, hoechst=True, wbc=False, roundness=True, sharpness=True, size=True, target=False)
+            # print(row[1:])    # out: (True, False, True, True, True, False)
+
+            if row[-1]:                     # if target:
+                self.view_fm.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('target',))
+            else:
+                self.view_fm.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('nontarget',))
 
 
 if __name__ == '__main__':
