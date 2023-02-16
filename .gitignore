@@ -1,4 +1,7 @@
 data/*
+icons/*
 src/util/__pycache__/*
 *.DSStore
 *.swp
+*.jpg
+*.png
