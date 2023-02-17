@@ -104,26 +104,26 @@ class Cv_api:
         
         self.busy_flag = False
     
-    def analysis(self, data:pd.DataFrame, hct_thres = HCT_THRESHOLD, wbc_thres = WBC_THRESHOLD, roundness_thres = ROUNDNESS_THRESHOLD,
-                sharpness_thres = SHARPNESS_THRESHOLD, diameter_thres = DIAMETER_THRESHOLD) -> pd.DataFrame:
-        '''Quick analysis for GUI feedback'''
+def analysis(data:pd.DataFrame, hct_thres = HCT_THRESHOLD, wbc_thres = WBC_THRESHOLD, roundness_thres = ROUNDNESS_THRESHOLD,
+            sharpness_thres = SHARPNESS_THRESHOLD, diameter_thres = DIAMETER_THRESHOLD) -> pd.DataFrame:
+    '''Quick analysis for GUI feedback'''
 
-        # True represents pass
-        result = pd.DataFrame()
-        result['hoechst'] = data['hct_intersect']/HCT_AREA >= hct_thres
-        result['wbc'] = data['wbc_intersect']/WBC_AREA < wbc_thres
-        result['roundness'] = data['roundness'] >= roundness_thres
-        result['sharpness'] = data['wbc_sharpness'] >= sharpness_thres
-        result['size'] = (data['max_diameter'] >= diameter_thres[0]) & (data['max_diameter'] <= diameter_thres[1])
-        result['target'] = result.all(axis= 'columns')
+    # True represents pass
+    result = pd.DataFrame()
+    result['hoechst'] = data['hct_intersect']/HCT_AREA >= hct_thres
+    result['wbc'] = data['wbc_intersect']/WBC_AREA < wbc_thres
+    result['roundness'] = data['roundness'] >= roundness_thres
+    result['sharpness'] = data['wbc_sharpness'] >= sharpness_thres
+    result['size'] = (data['max_diameter'] >= diameter_thres[0]) & (data['max_diameter'] <= diameter_thres[1])
+    result['target'] = result.all(axis= 'columns')
 
-        return result
+    return result
 
-    def count_target(self, dataframe:pd.DataFrame) -> int:
-        '''A 'target' column in dataframe required'''
-        target_amount = dataframe['target'].sum()
-        nontarget_amount = (~dataframe['target']).sum()
-        return target_amount, nontarget_amount
+def count_target(dataframe:pd.DataFrame) -> int:
+    '''A 'target' column in dataframe required'''
+    target_amount = dataframe['target'].sum()
+    nontarget_amount = (~dataframe['target']).sum()
+    return target_amount, nontarget_amount
 
 
 def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray) -> pd.DataFrame:
