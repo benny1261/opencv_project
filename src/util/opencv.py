@@ -81,27 +81,27 @@ class Cv_api:
     
     def export(self):
 
-        if self.app.export_fm.checkbtn['binary0'].get():
+        if self.app.binary0_switch.get():
             cv2.imwrite(os.path.join(self.app.export_directory, "binary0.jpg"), self.app.pre_0)
-        if self.app.export_fm.checkbtn['binary1'].get():
+        if self.app.binary1_switch.get():
             cv2.imwrite(os.path.join(self.app.export_directory, "binary1.jpg"), self.app.pre_1)
-        if self.app.export_fm.checkbtn['binary3'].get():
+        if self.app.binary3_switch.get():
             cv2.imwrite(os.path.join(self.app.export_directory, "binary3.jpg"), self.app.pre_3)
 
-        if self.app.home_fm.combobox['target'].get() == 'CTC':
+        if self.app.home_frame_type.get() == 'CTC':
 
             image_postprocessing(self.app.pre_1, self.app.pre_0, self.app.pre_3,
-            self.app.df, self.app.result, path= self.app.export_directory,
-            mark= self.app.export_fm.checkbtn['mark'].get(),
-            mask= self.app.export_fm.checkbtn['mask'].get(), beta= BETA)
+            self.app.df, self.app.result, path= self.app.export_dir.get(),
+            mark= self.app.mark_switch.get(),
+            mask= self.app.mask_switch.get(), beta= BETA)
 
-            if self.app.export_fm.checkbtn['raw_data'].get():
-                with pd.ExcelWriter(os.path.join(self.app.export_directory, 'data.xlsx')) as writer:
+            if self.app.raw_data_switch.get():
+                with pd.ExcelWriter(os.path.join(self.app.export_dir.get(), 'data.xlsx')) as writer:
                     self.app.df.to_excel(writer)
-            if self.app.export_fm.checkbtn['result_data'].get():
-                with pd.ExcelWriter(os.path.join(self.app.export_directory, 'result.xlsx')) as writer:
+            if self.app.result_data_switch.get():
+                with pd.ExcelWriter(os.path.join(self.app.export_dir.get(), 'result.xlsx')) as writer:
                     self.app.result.to_excel(writer)
-        
+
         self.busy_flag = False
     
 def analysis(data:pd.DataFrame, hct_thres = HCT_THRESHOLD, wbc_thres = WBC_THRESHOLD, roundness_thres = ROUNDNESS_THRESHOLD,

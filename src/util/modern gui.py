@@ -77,7 +77,7 @@ class App(ctk.CTk):
                                                 image=self.export_image, anchor="w", command= lambda :self.select_frame_by_name("export"))
         self.exportf_button.grid(row=3, column=0, sticky="ew")
 
-        self.appearance_mode_menu = ctk.CTkOptionMenu(self.navigation_frame, values=["Dark", "Light", "System"], 
+        self.appearance_mode_menu = ctk.CTkOptionMenu(self.navigation_frame, values=["Dark", "Light", "System"],
                                                 command=self.change_appearance_mode_event)
         self.appearance_mode_menu.grid(row=6, column=0, padx=20, pady=20, sticky="s")
 
@@ -119,14 +119,14 @@ class App(ctk.CTk):
         self.export_destination_frame = ctk.CTkFrame(self.export_frame, corner_radius= 20)
         self.export_destination_frame.grid(row= 0, column= 1, padx= (10, 20), pady= (20, 0), sticky= 'nsew')
         self.export_button = ctk.CTkButton(self.export_frame, text= 'export ', state= 'disabled', font= ctk.CTkFont(size= 40, weight= 'bold', slant= 'italic'),
-                                           text_color_disabled= "#930000", text_color= "#01B468",  corner_radius= 10)
+                                           text_color_disabled= "#930000", text_color= "#01B468",  corner_radius= 10, command= self.api.export_td)
         self.export_button.grid(row= 1, column= 1, padx= 60, pady= 60, sticky= 'nsew')
         # export setting widgets
         self.export_setting_frame.grid_columnconfigure(0, weight= 1)
         self.export_setting_frame.grid_rowconfigure(tuple(range(8)), weight= 1)
         self.binary0_switch = FlipSwitch(self.export_setting_frame, text= 'binary 0')
         self.binary1_switch = FlipSwitch(self.export_setting_frame, text= 'binary 1')
-        self.binary2_switch = FlipSwitch(self.export_setting_frame, text= 'binary 2')
+        self.binary2_switch = FlipSwitch(self.export_setting_frame, text= 'binary 2', state= 'disabled')
         self.binary3_switch = FlipSwitch(self.export_setting_frame, text= 'binary 3')
         self.mark_switch = FlipSwitch(self.export_setting_frame, text= 'mark')
         self.mask_switch = FlipSwitch(self.export_setting_frame, text= 'mask')
@@ -254,8 +254,6 @@ class App(ctk.CTk):
                 self.export_button.configure(state= 'disabled')
                 self.target.set(0)
                 self.nontarget.set(0)
-            
-            print(self.target.get(), self.nontarget.get()) ################################
     
     def auto(self):
 
