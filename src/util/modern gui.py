@@ -5,6 +5,7 @@ from PIL import Image
 from tkinter import filedialog
 from opencv import Import_thread, Cv_api
 import opencv as ccv
+from tkSliderWidget import Slider
 
 class App(ctk.CTk):
     def __init__(self):
@@ -21,9 +22,6 @@ class App(ctk.CTk):
         self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
         self.import_flag = False
         self.df, self.result = [], []
-        self.th_hct, self.th_wbc, self.th_round = ctk.DoubleVar(value= 0.9), ctk.DoubleVar(value= 0.3), ctk.DoubleVar(value= 0.7)
-        self.th_sharp = ctk.IntVar(value= 14000)
-        self.target, self.nontarget = ctk.IntVar(), ctk.IntVar()
 
         # initializing window position to screen center
         min_width, min_height = 720, 450
@@ -108,6 +106,10 @@ class App(ctk.CTk):
 
         # create filter frame
         self.filter_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
+        self.filter_frame.grid_rowconfigure(0, weight= 1)
+        self.filter_frame.grid_columnconfigure(0, weight= 1)
+        self.filter_tab = MyTabView(self.filter_frame, self)
+        self.filter_tab.grid(row= 0, column= 0, sticky= 'nsew', padx= 10, pady= 10)
 
         # create export frame
         self.export_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -244,7 +246,7 @@ class App(ctk.CTk):
                 self.df = thread.df
 
                 # update result in home frame
-                self.auto()
+                self.filter_tab.auto()
 
                 # pass data to treeview
                 # self.treeview_data(self.result) #############################################
@@ -252,16 +254,8 @@ class App(ctk.CTk):
             else:
                 self.home_frame_src.configure(text_color= ("#CE0000", "#750000"), border_color= "#AD5A5A", fg_color= ("#FFD2D2", "#743A3A"))
                 self.export_button.configure(state= 'disabled')
-                self.target.set(0)
-                self.nontarget.set(0)
-    
-    def auto(self):
-
-        if self.import_flag:
-            self.result = ccv.analysis(self.df)
-            y, n = ccv.count_target(self.result)
-            self.target.set(y)
-            self.nontarget.set(n)
+                self.filter_tab.target.set(0)
+                self.filter_tab.nontarget.set(0)
 
     def choose_des(self):
         '''Let user select directory where they export data'''
@@ -286,6 +280,84 @@ class FlipSwitch(ctk.CTkSwitch):
         self.grid_columnconfigure(2, weight=0, minsize=self._apply_widget_scaling(6))
         self._text_label.grid(row=0, column=0)
         self._canvas.grid(row=0, column=1, sticky= "e")
+
+
+class MyTabView(ctk.CTkTabview):
+    def __init__(self, master, main_program, **kwargs):
+        super().__init__(master, command= self.switch_tab, **kwargs)
+        self.prog = main_program
+        self.th_hct, self.th_wbc, self.th_round = ctk.DoubleVar(value= 0.9), ctk.DoubleVar(value= 0.3), ctk.DoubleVar(value= 0.7)
+        self.th_sharp = ctk.IntVar(value= 14000)
+        self.target, self.nontarget= ctk.IntVar(), ctk.IntVar()
+
+        self.add('auto')
+        self.add('manual')
+        self.tab("auto").grid_rowconfigure(tuple(range(5)), weight= 1)
+        self.tab("auto").grid_columnconfigure(0, weight= 1)
+        self.tab("manual").grid_columnconfigure(1, weight= 1)
+        self.tab("manual").grid_rowconfigure(9, weight= 1)
+
+        ctk.CTkLabel(self.tab("auto"), text= 'hoechst threshold: 0.9', anchor= 'w').grid(row= 0, column= 0, sticky= 'we')
+        ctk.CTkLabel(self.tab("auto"), text= 'wbc threshold: 0.3', anchor= 'w').grid(row= 1, column= 0, sticky= 'we')
+        ctk.CTkLabel(self.tab("auto"), text= 'roundness threshold: 0.7', anchor= 'w').grid(row= 2, column= 0, sticky= 'we')
+        ctk.CTkLabel(self.tab("auto"), text= 'sharpness threshold: 14000', anchor= 'w').grid(row= 3, column= 0, sticky= 'we')
+        ctk.CTkLabel(self.tab("auto"), text= 'diameter threshold: 10~27', anchor= 'w').grid(row= 4, column= 0, sticky= 'we')
+        ctk.CTkLabel(self.tab("auto"), text= 'target:', text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 1)
+        ctk.CTkLabel(self.tab("auto"), textvariable= self.target, text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 2, padx= 10)
+        ctk.CTkLabel(self.tab("auto"), text= 'nontarget:', text_color= ("#C6A300", "#977C00")).grid(row= 1, column= 1)
+        ctk.CTkLabel(self.tab("auto"), textvariable= self.nontarget, text_color= ("#C6A300", "#977C00")).grid(row= 1, column= 2)
+
+        ctk.CTkLabel(self.tab("manual"), text= 'hct').grid(row= 0, column= 0, sticky= 'w')
+        self.hct_scaler = ctk.CTkSlider(self.tab("manual"), from_= 0, to= 1, command= self.fetch, variable= self.th_hct)
+        self.hct_scaler.grid(row= 0, column= 1, sticky= 'we')
+        self.hct_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_hct).grid(row= 1, column= 1, sticky= 'we')
+        ctk.CTkLabel(self.tab("manual"), text= 'wbc').grid(row= 2, column= 0, sticky= 'w')
+        self.wbc_scaler = ctk.CTkSlider(self.tab("manual"), from_= 0, to= 1, command= self.fetch, variable= self.th_wbc)
+        self.wbc_scaler.grid(row= 2, column= 1, sticky= 'we')
+        self.wbc_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_wbc).grid(row= 3, column= 1, sticky= 'we')
+        ctk.CTkLabel(self.tab("manual"), text= 'roundness').grid(row= 4, column= 0, sticky= 'w')
+        self.roundness_scaler = ctk.CTkSlider(self.tab("manual"), from_= 0, to= 1, command= self.fetch, variable= self.th_round)
+        self.roundness_scaler.grid(row= 4, column= 1, sticky= 'we')
+        self.roundness_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_round).grid(row= 5, column= 1, sticky= 'we')
+        ctk.CTkLabel(self.tab("manual"), text= 'sharpness').grid(row= 6, column= 0, sticky= 'w')
+        self.sharpness_scaler = ctk.CTkSlider(self.tab("manual"), from_= 6000, to= 20000, command= self.fetch, variable= self.th_sharp)
+        self.sharpness_scaler.grid(row= 6, column= 1, sticky= 'we')
+        self.sharpness_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_sharp).grid(row= 7, column= 1, sticky= 'we')
+        ctk.CTkLabel(self.tab("manual"), text= 'diameter').grid(row= 8, column= 0, sticky= 'w')
+        self.diameter_scaler = Slider(self.tab("manual"), width= 600, height= 40, min_val= 0, max_val= 50, init_lis=[10, 27], show_value= True)
+        self.diameter_scaler.setValueChageCallback(lambda vals: self.fetch(vals))
+        self.diameter_scaler.grid(row= 8, column= 1, sticky= 'we')
+
+        self.monitor_frame = ctk.CTkFrame(self.tab("manual"), fg_color= 'transparent')
+        self.monitor_frame.grid_rowconfigure(0, weight= 1)
+        self.monitor_frame.grid_columnconfigure(tuple(range(4)), weight= 1)
+        self.monitor_frame.grid(row= 9, columnspan= 2, sticky= 'nsew')
+        ctk.CTkLabel(self.monitor_frame, text= 'target:', text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 0, sticky= 'e')
+        ctk.CTkLabel(self.monitor_frame, textvariable= self.target, text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 1, padx= 10, sticky= 'w')
+        ctk.CTkLabel(self.monitor_frame, text= 'nontarget:', text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 2, sticky= 'e')
+        ctk.CTkLabel(self.monitor_frame, textvariable= self.nontarget, text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 3, padx= 10, sticky= 'w')
+
+    def fetch(self, var):                           # var is the value of scalebar
+        if self.prog.import_flag:
+            self.prog.result = ccv.analysis(self.prog.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get(),
+                            sharpness_thres= self.th_sharp.get(), diameter_thres= self.diameter_scaler.getValues())
+            y, n = ccv.count_target(self.prog.result)
+            self.target.set(y)
+            self.nontarget.set(n)
+    
+    def auto(self):
+
+        if self.prog.import_flag:
+            self.prog.result = ccv.analysis(self.prog.df)
+            y, n = ccv.count_target(self.prog.result)
+            self.target.set(y)
+            self.nontarget.set(n)
+
+    def switch_tab(self):
+        if self.get() == "auto":
+            self.auto()
+        elif self.get() == "manual":
+            self.fetch(0)
 
 if __name__ == "__main__":
     app = App()
