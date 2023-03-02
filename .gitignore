@@ -1,5 +1,5 @@
 data/*
-icons/*
+*/icons/*
 src/util/__pycache__/*
 *.DSStore
 *.swp

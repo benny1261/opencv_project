@@ -3,9 +3,9 @@ from customtkinter import ThemeManager
 import os
 from PIL import Image
 from tkinter import filedialog
-from opencv import Import_thread, Cv_api
-import opencv as ccv
-from tkSliderWidget import Slider
+from util.opencv import Import_thread, Cv_api
+import util.opencv as ccv
+from util.tkSliderWidget import Slider
 
 class App(ctk.CTk):
     def __init__(self):
@@ -39,7 +39,7 @@ class App(ctk.CTk):
         ctk.set_appearance_mode('dark')
 
         # load icons with light and dark mode image
-        icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))), 'icons')
+        icon_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'icons')
         self.logo_image = ctk.CTkImage(Image.open(os.path.join(icon_path, "logo_icon.png")), size=(30, 30))
         self.large_test_image = ctk.CTkImage(Image.open(os.path.join(icon_path, "logo_icon.png")), size=(500, 150))
         self.image_icon_image = ctk.CTkImage(Image.open(os.path.join(icon_path, "logo_icon.png")), size=(20, 20))
