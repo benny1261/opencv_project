@@ -4,8 +4,8 @@ from tkinter import messagebox
 from tkinter import filedialog
 from tkinter import ttk
 from tkSliderWidget import Slider
-from opencv import Import_thread
-from opencv import Cv_api
+from opencv import Import_thread, Cv_api
+import opencv as ccv
 import pandas as pd
 
 class Frame:
@@ -197,16 +197,16 @@ class Window:
         self.home_fm.btn['auto'].configure(bg= 'skyblue')
         self.home_fm.btn['manual'].configure(bg= 'gray')
         if self.import_flag:
-            self.result = self.api.analysis(self.df)
-            y, n = self.api.count_target(self.result)
+            self.result = ccv.analysis(self.df)
+            y, n = ccv.count_target(self.result)
             self.target.set(y)
             self.nontarget.set(n)
 
     def fetch(self, var):                           # var is the value of scalebar
         if self.import_flag:
-            self.result = self.api.analysis(self.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get(),
+            self.result = ccv.analysis(self.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get(),
                             sharpness_thres= self.th_sharp.get(), diameter_thres= self.manual_fm.scaler['diameter'].getValues())
-            y, n = self.api.count_target(self.result)
+            y, n = ccv.count_target(self.result)
             self.target.set(y)
             self.nontarget.set(n)
 

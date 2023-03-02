@@ -67,12 +67,12 @@ class Import_thread(Thread):                                                    
 
 
 class Cv_api:
-    def __init__(self, app):
-        self.app = app
+    def __init__(self, master):
+        self.master = master
         self.busy_flag = False
 
     def export_td(self):                                                            # needs to be able to thread repeatedly
-        if self.app.import_flag:
+        if self.master.import_flag:
             if not self.busy_flag:                                                  # block creating new thread before previous one terminates
                 self.busy_flag = True
                 # establish export thread
@@ -81,49 +81,49 @@ class Cv_api:
     
     def export(self):
 
-        if self.app.export_fm.checkbtn['binary0'].get():
-            cv2.imwrite(os.path.join(self.app.export_directory, "binary0.jpg"), self.app.pre_0)
-        if self.app.export_fm.checkbtn['binary1'].get():
-            cv2.imwrite(os.path.join(self.app.export_directory, "binary1.jpg"), self.app.pre_1)
-        if self.app.export_fm.checkbtn['binary3'].get():
-            cv2.imwrite(os.path.join(self.app.export_directory, "binary3.jpg"), self.app.pre_3)
+        if self.master.export_frame.binary0_switch.get():
+            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary0.jpg"), self.master.pre_0)
+        if self.master.export_frame.binary1_switch.get():
+            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary1.jpg"), self.master.pre_1)
+        if self.master.export_frame.binary3_switch.get():
+            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary3.jpg"), self.master.pre_3)
 
-        if self.app.home_fm.combobox['target'].get() == 'CTC':
+        if self.master.home_frame_type.get() == 'CTC':
 
-            image_postprocessing(self.app.pre_1, self.app.pre_0, self.app.pre_3,
-            self.app.df, self.app.result, path= self.app.export_directory,
-            mark= self.app.export_fm.checkbtn['mark'].get(),
-            mask= self.app.export_fm.checkbtn['mask'].get(), beta= BETA)
+            image_postprocessing(self.master.pre_1, self.master.pre_0, self.master.pre_3,
+            self.master.df, self.master.result, path= self.master.export_dir.get(),
+            mark= self.master.export_frame.mark_switch.get(),
+            mask= self.master.export_frame.mask_switch.get(), beta= BETA)
 
-            if self.app.export_fm.checkbtn['raw_data'].get():
-                with pd.ExcelWriter(os.path.join(self.app.export_directory, 'data.xlsx')) as writer:
-                    self.app.df.to_excel(writer)
-            if self.app.export_fm.checkbtn['result_data'].get():
-                with pd.ExcelWriter(os.path.join(self.app.export_directory, 'result.xlsx')) as writer:
-                    self.app.result.to_excel(writer)
-        
+            if self.master.export_frame.raw_data_switch.get():
+                with pd.ExcelWriter(os.path.join(self.master.export_dir.get(), 'data.xlsx')) as writer:
+                    self.master.df.to_excel(writer)
+            if self.master.export_frame.result_data_switch.get():
+                with pd.ExcelWriter(os.path.join(self.master.export_dir.get(), 'result.xlsx')) as writer:
+                    self.master.result.to_excel(writer)
+
         self.busy_flag = False
     
-    def analysis(self, data:pd.DataFrame, hct_thres = HCT_THRESHOLD, wbc_thres = WBC_THRESHOLD, roundness_thres = ROUNDNESS_THRESHOLD,
-                sharpness_thres = SHARPNESS_THRESHOLD, diameter_thres = DIAMETER_THRESHOLD) -> pd.DataFrame:
-        '''Quick analysis for GUI feedback'''
+def analysis(data:pd.DataFrame, hct_thres = HCT_THRESHOLD, wbc_thres = WBC_THRESHOLD, roundness_thres = ROUNDNESS_THRESHOLD,
+            sharpness_thres = SHARPNESS_THRESHOLD, diameter_thres = DIAMETER_THRESHOLD) -> pd.DataFrame:
+    '''Quick analysis for GUI feedback'''
 
-        # True represents pass
-        result = pd.DataFrame()
-        result['hoechst'] = data['hct_intersect']/HCT_AREA >= hct_thres
-        result['wbc'] = data['wbc_intersect']/WBC_AREA < wbc_thres
-        result['roundness'] = data['roundness'] >= roundness_thres
-        result['sharpness'] = data['wbc_sharpness'] >= sharpness_thres
-        result['size'] = (data['max_diameter'] >= diameter_thres[0]) & (data['max_diameter'] <= diameter_thres[1])
-        result['target'] = result.all(axis= 'columns')
+    # True represents pass
+    result = pd.DataFrame()
+    result['hoechst'] = data['hct_intersect']/HCT_AREA >= hct_thres
+    result['wbc'] = data['wbc_intersect']/WBC_AREA < wbc_thres
+    result['roundness'] = data['roundness'] >= roundness_thres
+    result['sharpness'] = data['wbc_sharpness'] >= sharpness_thres
+    result['size'] = (data['max_diameter'] >= diameter_thres[0]) & (data['max_diameter'] <= diameter_thres[1])
+    result['target'] = result.all(axis= 'columns')
 
-        return result
+    return result
 
-    def count_target(self, dataframe:pd.DataFrame) -> int:
-        '''A 'target' column in dataframe required'''
-        target_amount = dataframe['target'].sum()
-        nontarget_amount = (~dataframe['target']).sum()
-        return target_amount, nontarget_amount
+def count_target(dataframe:pd.DataFrame) -> int:
+    '''A 'target' column in dataframe required'''
+    target_amount = dataframe['target'].sum()
+    nontarget_amount = (~dataframe['target']).sum()
+    return target_amount, nontarget_amount
 
 
 def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray) -> pd.DataFrame:
