@@ -1,4 +1,5 @@
 import customtkinter as ctk
+import tkinter as tk
 from tkinter import ttk
 from customtkinter import ThemeManager
 import os
@@ -7,6 +8,7 @@ from tkinter import filedialog
 from util.opencv import Import_thread, Cv_api
 import util.opencv as ccv
 from util.tkSliderWidget import Slider
+import pandas as pd
 
 class App(ctk.CTk):
     def __init__(self):
@@ -123,6 +125,9 @@ class App(ctk.CTk):
         self.examine_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self.examine_frame.grid_rowconfigure(0, weight= 1)
         self.examine_frame.grid_columnconfigure(0, weight= 1)
+        self.tree = MyTreeView(self.examine_frame)
+        self.tree.grid(row= 0, column= 0, sticky= 'nsew', padx= 5, pady= 5)
+        # ctk.CTkFrame(self.examine_frame, corner_radius= 10, fg_color="transparent").grid(row= 0, column= 1, padx= (0, 5), pady= 5, sticky= 'nsew')
 
         # create export frame
         self.export_frame = ExportFrame(self)
@@ -223,7 +228,7 @@ class App(ctk.CTk):
                 self.filter_tab.auto()
 
                 # pass data to treeview
-                # self.treeview_data(self.result) #############################################
+                self.tree.import_data(self.result)
 
             else:
                 self.home_frame_src.configure(text_color= ("#CE0000", "#750000"), border_color= "#AD5A5A", fg_color= ("#FFD2D2", "#743A3A"))
@@ -337,6 +342,7 @@ class MyTabView(ctk.CTkTabview):
 class ExportFrame(ctk.CTkFrame):
     def __init__(self, master, corner_radius= 0, fg_color= "transparent", **kwargs):
         super().__init__(master, corner_radius= corner_radius, fg_color= fg_color, **kwargs)
+
         self.grid_rowconfigure(0, weight= 2)
         self.grid_rowconfigure(1, weight= 1)
         self.grid_columnconfigure(1, weight= 1)
@@ -389,6 +395,58 @@ class MyTreeView(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
 
+        self.grid_rowconfigure(0, weight= 1)
+        self.grid_columnconfigure(0, weight= 1)
+
+        # set style
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+        self.style.configure("cus.Treeview", background="Transparent", fieldbackground="transparent", foreground="black")
+        self.style.configure("cus.Treeview.Heading", background= 'gray80', font= ('Times', 10, 'bold'))
+        self.style.layout("cus.Treeview", [('cus.Treeview.treearea', {'sticky': 'nswe'})]) # Remove the borders
+
+        # initializing widgets
+        self.scrollbar = tk.Scrollbar(self)
+        self.treeview = ttk.Treeview(self, yscrollcommand= self.scrollbar.set, selectmode= 'browse', style= 'cus.Treeview')
+        self.scrollbar.config(command= self.treeview.yview)
+
+        # define columns
+        self.treeview['columns'] = ("ID", "hct", "wbc", "roundness", "sharpness", "size")
+        self.treeview.column("#0", width= 0, stretch= False)
+        self.treeview.column("ID", anchor= 'center', width= 1, stretch= True)
+        self.treeview.column("hct", anchor= 'center', width= 1, stretch= True)
+        self.treeview.column("wbc", anchor= 'center', width= 1, stretch= True)
+        self.treeview.column("roundness", anchor= 'center', width= 1, stretch= True)
+        self.treeview.column("sharpness", anchor= 'center', width= 1, stretch= True)
+        self.treeview.column("size", anchor= 'center', width= 1, stretch= True)
+
+        # create headings
+        self.treeview.heading("#0", text= "")
+        self.treeview.heading("ID", text= "ID", anchor= 'w')
+        self.treeview.heading("hct", text= "hct", anchor= 'w')
+        self.treeview.heading("wbc", text= "wbc", anchor= 'w')
+        self.treeview.heading("roundness", text= "roundness", anchor= 'w')
+        self.treeview.heading("sharpness", text= "sharpness", anchor= 'w')
+        self.treeview.heading("size", text= "size", anchor= 'w')
+
+        # set tags
+        self.treeview.tag_configure('nontarget', background= "#E1C4C4")
+        self.treeview.tag_configure('target', background= "#B3D9D9")
+
+        # placing widgets in view frame
+        self.treeview.grid(row= 0, column= 0, sticky= 'nsew')
+        self.scrollbar.grid(row= 0, column= 1, sticky= 'nsw')
+
+    def import_data(self, data: pd.DataFrame):
+        '''pass data in pandas dataframe to treeview'''
+        for row in data.itertuples():
+            # print(row)        # out: Pandas(Index=59, hoechst=True, wbc=False, roundness=True, sharpness=True, size=True, target=False)
+            # print(row[1:])    # out: (True, False, True, True, True, False)
+
+            if row[-1]:                     # if target:
+                self.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('target',))
+            else:
+                self.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('nontarget',))
 
 if __name__ == "__main__":
     app = App()
