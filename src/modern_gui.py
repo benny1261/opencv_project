@@ -413,7 +413,7 @@ class MyTreeView(ctk.CTkFrame):
         # define columns
         self.treeview['columns'] = ("ID", "hct", "wbc", "roundness", "sharpness", "size")
         self.treeview.column("#0", width= 0, stretch= False)
-        self.treeview.column("ID", anchor= 'center', width= 1, stretch= True)
+        self.treeview.column("ID", anchor= 'center', width= 40, stretch= False)
         self.treeview.column("hct", anchor= 'center', width= 1, stretch= True)
         self.treeview.column("wbc", anchor= 'center', width= 1, stretch= True)
         self.treeview.column("roundness", anchor= 'center', width= 1, stretch= True)
@@ -437,6 +437,9 @@ class MyTreeView(ctk.CTkFrame):
         self.treeview.grid(row= 0, column= 0, sticky= 'nsew')
         self.scrollbar.grid(row= 0, column= 1, sticky= 'nsw')
 
+        # bind command
+        self.treeview.bind("<Double-1>", self.on_click)
+
     def import_data(self, data: pd.DataFrame):
         '''pass data in pandas dataframe to treeview'''
         for row in data.itertuples():
@@ -447,6 +450,15 @@ class MyTreeView(ctk.CTkFrame):
                 self.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('target',))
             else:
                 self.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('nontarget',))
+    
+    def on_click(self, event, changed_item= []):
+        if not self.treeview.identify_element(event.x, event.y) == '':      # do nothing when there's nothing
+            row = self.treeview.identify_row(event.y)
+            col = self.treeview.identify_column(event.x)
+            if self.treeview.set(row, col) == 'True':                       # get value
+                self.treeview.set(row, col, 'False')
+            elif self.treeview.set(row, col) == 'False':
+                self.treeview.set(row, col, 'True')
 
 if __name__ == "__main__":
     app = App()
