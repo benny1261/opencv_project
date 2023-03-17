@@ -4,22 +4,16 @@ import glob
 import numpy as np
 import util.opencv as cv
 import math
+import pandas as pd
 from skimage import measure, morphology
 
-def exp(ex, al=[]):
-    al.append(ex)
-    return al
+df = pd.DataFrame({"A":[1,2,3],"B":[4,5,6], "C":[7,8,9]})
+print(df)
 
-def exp2(ex):
-    al=[]
-    al.append(ex)
-    return al
-
-print(exp(1))
-print(exp(2))
-
-print(exp2(1))
-print(exp2(2))
+df2 = df.iloc[0:2, 0:2]
+print(df2)
+df2[1,1]= 99
+print(df)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()

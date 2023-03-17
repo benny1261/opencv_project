@@ -1,14 +1,13 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk
 from customtkinter import ThemeManager
 import os
 from PIL import Image
 from tkinter import filedialog
+import pandas as pd
 from util.opencv import Import_thread, Cv_api
 import util.opencv as ccv
 from util.tkSliderWidget import Slider
-import pandas as pd
 from pandastable.core import Table, config, RowHeader, IndexHeader, ColumnHeader, ToolBar, statusBar
 from pandastable.dialogs import applyStyle, AutoScrollbar
 from pandastable.util import check_multiindex
@@ -28,7 +27,7 @@ class App(ctk.CTk):
         self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
         self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
         self.import_flag = False
-        self.df, self.result = [], []
+        self.df, self.result = pd.DataFrame(), pd.DataFrame()
 
         # initializing window position to screen center
         min_width, min_height = 720, 450
@@ -129,7 +128,7 @@ class App(ctk.CTk):
         self.examine_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         # self.examine_frame.grid_rowconfigure(0, weight= 1)
         # self.examine_frame.grid_columnconfigure(0, weight= 1)
-        self.table = MyTable(self.examine_frame)
+        self.table = MyTable(self.examine_frame, master = self)
         self.table.show()
         # ctk.CTkFrame(self.examine_frame, corner_radius= 10, fg_color="transparent").grid(row= 0, column= 1, padx= (0, 5), pady= 5, sticky= 'nsew')
 
@@ -231,8 +230,7 @@ class App(ctk.CTk):
                 self.filter_tab.auto()
 
                 # pass data to table and configure row color
-                # if there are model exist use self.table.clearTable()
-                self.table.model.df = self.result.iloc[:, :-1]  # uses iloc to choose data without 'target' column, and this does not make a copy
+                self.table.model.df = self.result.iloc[:, :-1]  # uses iloc to choose data without 'target' column, and this makes a copy(or not?)
                 target_rows = self.result.query('target > 0').index.tolist()
                 self.table.setRowColors(rows= target_rows, clr= "#984B4B",cols= 'all')
                 self.table.redraw()
@@ -398,81 +396,13 @@ class ExportFrame(ctk.CTkFrame):
         self.destination_button.grid(row= 1, column= 1, padx= (0, 10), pady= (0, 40), sticky= 'we')
 
 
-class MyTreeView(ctk.CTkFrame):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-
-        self.grid_rowconfigure(0, weight= 1)
-        self.grid_columnconfigure(0, weight= 1)
-
-        # set style
-        self.style = ttk.Style()
-        self.style.theme_use('clam')
-        self.style.configure("cus.Treeview", background="Transparent", fieldbackground="transparent", foreground="black")
-        self.style.configure("cus.Treeview.Heading", background= 'gray80', font= ('Times', 10, 'bold'))
-        self.style.layout("cus.Treeview", [('cus.Treeview.treearea', {'sticky': 'nswe'})]) # Remove the borders
-
-        # initializing widgets
-        self.scrollbar = tk.Scrollbar(self)
-        self.treeview = ttk.Treeview(self, yscrollcommand= self.scrollbar.set, selectmode= 'browse', style= 'cus.Treeview')
-        self.scrollbar.config(command= self.treeview.yview)
-
-        # define columns
-        self.treeview['columns'] = ("ID", "hct", "wbc", "roundness", "sharpness", "size")
-        self.treeview.column("#0", width= 0, stretch= False)
-        self.treeview.column("ID", anchor= 'center', width= 40, stretch= False)
-        self.treeview.column("hct", anchor= 'center', width= 1, stretch= True)
-        self.treeview.column("wbc", anchor= 'center', width= 1, stretch= True)
-        self.treeview.column("roundness", anchor= 'center', width= 1, stretch= True)
-        self.treeview.column("sharpness", anchor= 'center', width= 1, stretch= True)
-        self.treeview.column("size", anchor= 'center', width= 1, stretch= True)
-
-        # create headings
-        self.treeview.heading("#0", text= "")
-        self.treeview.heading("ID", text= "ID", anchor= 'w')
-        self.treeview.heading("hct", text= "hct", anchor= 'w')
-        self.treeview.heading("wbc", text= "wbc", anchor= 'w')
-        self.treeview.heading("roundness", text= "roundness", anchor= 'w')
-        self.treeview.heading("sharpness", text= "sharpness", anchor= 'w')
-        self.treeview.heading("size", text= "size", anchor= 'w')
-
-        # set tags
-        self.treeview.tag_configure('nontarget', background= "#E1C4C4")
-        self.treeview.tag_configure('target', background= "#B3D9D9")
-
-        # placing widgets in view frame
-        self.treeview.grid(row= 0, column= 0, sticky= 'nsew')
-        self.scrollbar.grid(row= 0, column= 1, sticky= 'nsw')
-
-        # bind command
-        self.treeview.bind("<Double-1>", self.on_click)
-
-    def import_data(self, data: pd.DataFrame):
-        '''pass data in pandas dataframe to treeview'''
-        for row in data.itertuples():
-            # print(row)        # out: Pandas(Index=59, hoechst=True, wbc=False, roundness=True, sharpness=True, size=True, target=False)
-            # print(row[1:])    # out: (True, False, True, True, True, False)
-
-            if row[-1]:                     # if target:
-                self.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('target',))
-            else:
-                self.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('nontarget',))
-    
-    def on_click(self, event, changed_item= []):
-        if not self.treeview.identify_element(event.x, event.y) == '':      # do nothing when there's nothing
-            row = self.treeview.identify_row(event.y)
-            col = self.treeview.identify_column(event.x)
-            if self.treeview.set(row, col) == 'True':                       # get value
-                self.treeview.set(row, col, 'False')
-            elif self.treeview.set(row, col) == 'False':
-                self.treeview.set(row, col, 'True')
-
-
 class MyTable(Table):
     def __init__(self, parent=None, model=None, dataframe=None, width=None, height=None, rows=20, cols=5,
-                 showtoolbar=False, showstatusbar=True, editable=False, enable_menus=True, **kwargs):
+                 showtoolbar=False, showstatusbar=True, editable=False, enable_menus=True, master = None, **kwargs):       # add master myself
         super().__init__(parent, model, dataframe, width, height, rows, cols, showtoolbar, showstatusbar, editable, enable_menus, **kwargs)
 
+        self.master = master
+        self.toggle_color = '#A5A552'
         self.setTheme('dark')
         options = {
         # 'align': 'w',
@@ -491,6 +421,114 @@ class MyTable(Table):
         'showindex': True     # make header of row is the number of index
         }
         config.apply_options(options, self)
+        self.bind("<Alt-Button-1>",self.handle_left_alt_click)
+        self.toggled_cell = []
+
+    def handle_left_alt_click(self, event):
+        '''toggle boolean when alt+left click'''
+
+        rowclicked = self.get_row_clicked(event)
+        colclicked = self.get_col_clicked(event)
+        print(rowclicked, colclicked)
+        if not self.model.df.isnull().values.any():
+            self.model.df.iat[rowclicked, colclicked] = bool(not self.model.df.iat[rowclicked, colclicked])     # toggle
+
+            if (rowclicked, colclicked) not in self.toggled_cell:
+                self.toggled_cell.append((rowclicked, colclicked))
+                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.toggle_color)
+            else:
+                self.toggled_cell.remove((rowclicked, colclicked))
+                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.textcolor)
+
+            self.master.result.iat[rowclicked, colclicked] = self.model.df.iat[rowclicked, colclicked]          # propagate back data
+            # print(self.master.result)
+
+    def redrawVisible(self, event=None, callback=None):
+        """Overridden function, custumized to make textcolor in toggled cell not covered by redrawing
+        """
+
+        if not hasattr(self, 'colheader'):
+            return
+        model = self.model
+        self.rows = len(self.model.df.index)
+        self.cols = len(self.model.df.columns)
+        if self.cols == 0 or self.rows == 0:
+            self.delete('entry')
+            self.delete('rowrect','colrect')
+            self.delete('currentrect','fillrect')
+            self.delete('gridline','text')
+            self.delete('multicellrect','multiplesel')
+            self.delete('colorrect')
+            self.setColPositions()
+            if self.cols == 0:
+                self.colheader.redraw()
+            if self.rows == 0:
+                self.visiblerows = []
+                self.rowheader.redraw()
+            return
+        self.tablewidth = (self.cellwidth) * self.cols
+        self.configure(bg=self.cellbackgr)
+        self.setColPositions()
+
+        #are we drawing a filtered subset of the recs?
+        if self.filtered == True:
+            self.delete('colrect')
+
+        self.rowrange = list(range(0,self.rows))
+        self.configure(scrollregion=(0,0, self.tablewidth+self.x_start,
+                        self.rowheight*self.rows+10))
+
+        x1, y1, x2, y2 = self.getVisibleRegion()
+        startvisiblerow, endvisiblerow = self.getVisibleRows(y1, y2)
+        self.visiblerows = list(range(startvisiblerow, endvisiblerow))
+        startvisiblecol, endvisiblecol = self.getVisibleCols(x1, x2)
+        self.visiblecols = list(range(startvisiblecol, endvisiblecol))
+
+        self.drawGrid(startvisiblerow, endvisiblerow)
+        align = self.align
+        self.delete('fillrect')
+        bgcolor = self.cellbackgr
+        df = self.model.df
+
+        prec = self.floatprecision
+        rows = self.visiblerows
+        for col in self.visiblecols:
+            coldata = df.iloc[rows,col]
+            colname = df.columns[col]
+            cfa = self.columnformats['alignment']
+            if colname in cfa:
+                align = cfa[colname]
+            else:
+                align = self.align
+            if prec != 0:
+                if coldata.dtype == 'float64':
+                    coldata = coldata.apply(lambda x: self.setPrecision(x, prec), 1)
+            coldata = coldata.astype(object).fillna('')
+            offset = rows[0]
+            for row in self.visiblerows:
+                text = coldata.iloc[row-offset]
+                # modified chunk ##################
+                if (row, col) in self.toggled_cell:
+                    self.drawText(row, col, text, align, self.toggle_color)
+                else:
+                    self.drawText(row, col, text, align, self.textcolor)
+                ###################################
+
+        self.colorColumns()
+        self.colorRows()
+        self.colheader.redraw(align=self.align)
+        self.rowheader.redraw()
+        self.rowindexheader.redraw()
+        self.drawSelectedRow()
+        self.drawSelectedRect(self.currentrow, self.currentcol)
+
+        if len(self.multiplerowlist)>1:
+            self.rowheader.drawSelectedRows(self.multiplerowlist)
+            self.drawMultipleRows(self.multiplerowlist)
+            self.drawMultipleCells()
+
+        self.drawHighlighted()
+        return
 
     class AdjColumnHeader(ColumnHeader):
         '''adjust function in ColumnHeader module'''
@@ -553,6 +591,31 @@ class MyTable(Table):
             popupmenu.post(event.x_root, event.y_root)
             applyStyle(popupmenu)
             return popupmenu
+
+        def handle_mouse_drag(self, event):
+            """Handle column drag, move cols function deleted"""
+
+            x=int(self.canvasx(event.x))
+            if self.atdivider == 1:
+                self.table.delete('resizeline')
+                self.delete('resizeline')
+                self.table.create_line(x, 0, x, self.table.rowheight*self.table.rows,
+                                    width=2, fill='gray', tag='resizeline')
+                self.create_line(x, 0, x, self.height,
+                                    width=2, fill='gray', tag='resizeline')
+                # return
+            # else:
+            #     w = self.table.cellwidth
+            #     self.draggedcol = self.table.get_col_clicked(event)
+            #     coords = self.coords('dragrect')
+            #     if len(coords)==0:
+            #         return
+            #     x1, y1, x2, y2 = coords
+            #     x=int(self.canvasx(event.x))
+            #     y = self.canvasy(event.y)
+            #     self.move('dragrect', x-x1-w/2, 0)
+
+            return
 
     class AdjRowHeader(RowHeader):
         '''adjust function in RowHeader module'''
