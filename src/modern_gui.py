@@ -232,7 +232,7 @@ class App(ctk.CTk):
                 # pass data to table and configure row color
                 self.table.model.df = self.result.iloc[:, :-1]  # uses iloc to choose data without 'target' column, and this makes a copy(or not?)
                 target_rows = self.result.query('target > 0').index.tolist()
-                self.table.setRowColors(rows= target_rows, clr= "#984B4B",cols= 'all')
+                self.table.setRowColors(rows= target_rows, clr= "#984B4B",cols= 'all')  # set target row red background
                 self.table.redraw()
 
             else:
@@ -433,6 +433,7 @@ class MyTable(Table):
         if not self.model.df.isnull().values.any():
             self.model.df.iat[rowclicked, colclicked] = bool(not self.model.df.iat[rowclicked, colclicked])     # toggle
 
+            # toggle font color
             if (rowclicked, colclicked) not in self.toggled_cell:
                 self.toggled_cell.append((rowclicked, colclicked))
                 self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.toggle_color)
@@ -441,7 +442,14 @@ class MyTable(Table):
                 self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.textcolor)
 
             self.master.result.iat[rowclicked, colclicked] = self.model.df.iat[rowclicked, colclicked]          # propagate back data
-            # print(self.master.result)
+
+            # toggle row background color and 'target' column in result dataframe
+            if self.model.df.iloc[rowclicked, :].values.all():
+                self.setRowColors(rows= rowclicked, clr= "#984B4B",cols= 'all')
+                self.master.result.iat[rowclicked, -1] = True
+            else:
+                self.setRowColors(rows= rowclicked, clr= self.cellbackgr,cols= 'all')
+                self.master.result.iat[rowclicked, -1] = False
 
     def redrawVisible(self, event=None, callback=None):
         """Overridden function, custumized to make textcolor in toggled cell not covered by redrawing
