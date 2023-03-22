@@ -422,34 +422,10 @@ class MyTable(Table):
         }
         config.apply_options(options, self)
         self.bind("<Alt-Button-1>",self.handle_left_alt_click)
+        self.bind("<Alt-Button-3>", self.handle_right_alt_click)
         self.toggled_cell = []
 
-    def handle_left_alt_click(self, event):
-        '''toggle boolean when alt+left click'''
-
-        rowclicked = self.get_row_clicked(event)
-        colclicked = self.get_col_clicked(event)
-        print(rowclicked, colclicked)
-        if not self.model.df.isnull().values.any():
-            self.model.df.iat[rowclicked, colclicked] = bool(not self.model.df.iat[rowclicked, colclicked])     # toggle
-
-            # toggle font color
-            if (rowclicked, colclicked) not in self.toggled_cell:
-                self.toggled_cell.append((rowclicked, colclicked))
-                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.toggle_color)
-            else:
-                self.toggled_cell.remove((rowclicked, colclicked))
-                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.textcolor)
-
-            self.master.result.iat[rowclicked, colclicked] = self.model.df.iat[rowclicked, colclicked]          # propagate back data
-
-            # toggle row background color and 'target' column in result dataframe
-            if self.model.df.iloc[rowclicked, :].values.all():
-                self.setRowColors(rows= rowclicked, clr= "#984B4B",cols= 'all')
-                self.master.result.iat[rowclicked, -1] = True
-            else:
-                self.setRowColors(rows= rowclicked, clr= self.cellbackgr,cols= 'all')
-                self.master.result.iat[rowclicked, -1] = False
+        self.viewer = None
 
     def redrawVisible(self, event=None, callback=None):
         """Overridden function, custumized to make textcolor in toggled cell not covered by redrawing
@@ -811,6 +787,56 @@ class MyTable(Table):
         #raise text above all
         self.lift('celltext'+str(col)+'_'+str(row))
         return
+
+    # Not overridden part of pandastable
+    def handle_left_alt_click(self, event):
+        '''toggle boolean when alt+left click'''
+
+        rowclicked = self.get_row_clicked(event)
+        colclicked = self.get_col_clicked(event)
+
+        if not self.model.df.isnull().values.any():
+            self.model.df.iat[rowclicked, colclicked] = bool(not self.model.df.iat[rowclicked, colclicked])     # toggle
+
+            # toggle font color
+            if (rowclicked, colclicked) not in self.toggled_cell:
+                self.toggled_cell.append((rowclicked, colclicked))
+                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.toggle_color)
+            else:
+                self.toggled_cell.remove((rowclicked, colclicked))
+                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.textcolor)
+
+            self.master.result.iat[rowclicked, colclicked] = self.model.df.iat[rowclicked, colclicked]          # propagate back data
+
+            # toggle row background color and 'target' column in result dataframe
+            if self.model.df.iloc[rowclicked, :].values.all():
+                self.setRowColors(rows= rowclicked, clr= "#984B4B",cols= 'all')
+                self.master.result.iat[rowclicked, -1] = True
+            else:
+                self.setRowColors(rows= rowclicked, clr= self.cellbackgr,cols= 'all')
+                self.master.result.iat[rowclicked, -1] = False
+
+    def handle_right_alt_click(self, event):
+        '''open corresponding view of index'''
+
+        if self.master.import_flag:
+            rowclicked = self.get_row_clicked(event)
+            print(rowclicked)
+            self.open_viewer(rowclicked)
+
+    def open_viewer(self, id:int= None):
+        if self.viewer == None or not self.viewer.winfo_exists():
+            self.viewer = self.ToplevelViewer()
+            pil_image = Image.fromarray(self.master.img_0)
+            img = ctk.CTkImage(pil_image)
+            self.img = ctk.CTkLabel(self.viewer, text= '', image= img).pack()
+        else:
+            self.viewer.focus()
+
+    class ToplevelViewer(ctk.CTkToplevel):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.geometry("400x400")
 
 if __name__ == "__main__":
     app = App()
