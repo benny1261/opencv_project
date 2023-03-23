@@ -2,7 +2,7 @@ import customtkinter as ctk
 import tkinter as tk
 from customtkinter import ThemeManager
 import os
-from PIL import Image
+from PIL import Image, ImageTk
 from tkinter import filedialog
 import pandas as pd
 from util.opencv import Import_thread, Cv_api
@@ -422,34 +422,10 @@ class MyTable(Table):
         }
         config.apply_options(options, self)
         self.bind("<Alt-Button-1>",self.handle_left_alt_click)
+        self.bind("<Alt-Button-3>", self.handle_right_alt_click)
         self.toggled_cell = []
 
-    def handle_left_alt_click(self, event):
-        '''toggle boolean when alt+left click'''
-
-        rowclicked = self.get_row_clicked(event)
-        colclicked = self.get_col_clicked(event)
-        print(rowclicked, colclicked)
-        if not self.model.df.isnull().values.any():
-            self.model.df.iat[rowclicked, colclicked] = bool(not self.model.df.iat[rowclicked, colclicked])     # toggle
-
-            # toggle font color
-            if (rowclicked, colclicked) not in self.toggled_cell:
-                self.toggled_cell.append((rowclicked, colclicked))
-                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.toggle_color)
-            else:
-                self.toggled_cell.remove((rowclicked, colclicked))
-                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.textcolor)
-
-            self.master.result.iat[rowclicked, colclicked] = self.model.df.iat[rowclicked, colclicked]          # propagate back data
-
-            # toggle row background color and 'target' column in result dataframe
-            if self.model.df.iloc[rowclicked, :].values.all():
-                self.setRowColors(rows= rowclicked, clr= "#984B4B",cols= 'all')
-                self.master.result.iat[rowclicked, -1] = True
-            else:
-                self.setRowColors(rows= rowclicked, clr= self.cellbackgr,cols= 'all')
-                self.master.result.iat[rowclicked, -1] = False
+        self.viewer = None
 
     def redrawVisible(self, event=None, callback=None):
         """Overridden function, custumized to make textcolor in toggled cell not covered by redrawing
@@ -811,6 +787,190 @@ class MyTable(Table):
         #raise text above all
         self.lift('celltext'+str(col)+'_'+str(row))
         return
+
+    # Not overridden part of pandastable
+    def handle_right_alt_click(self, event):
+        '''toggle boolean when alt+left click'''
+
+        rowclicked = self.get_row_clicked(event)
+        colclicked = self.get_col_clicked(event)
+
+        if not self.model.df.isnull().values.any():
+            self.model.df.iat[rowclicked, colclicked] = bool(not self.model.df.iat[rowclicked, colclicked])     # toggle
+
+            # toggle font color
+            if (rowclicked, colclicked) not in self.toggled_cell:
+                self.toggled_cell.append((rowclicked, colclicked))
+                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.toggle_color)
+            else:
+                self.toggled_cell.remove((rowclicked, colclicked))
+                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.textcolor)
+
+            self.master.result.iat[rowclicked, colclicked] = self.model.df.iat[rowclicked, colclicked]          # propagate back data
+
+            # toggle row background color and 'target' column in result dataframe
+            if self.model.df.iloc[rowclicked, :].values.all():
+                self.setRowColors(rows= rowclicked, clr= "#984B4B",cols= 'all')
+                self.master.result.iat[rowclicked, -1] = True
+            else:
+                self.setRowColors(rows= rowclicked, clr= self.cellbackgr,cols= 'all')
+                self.master.result.iat[rowclicked, -1] = False
+
+    def handle_left_alt_click(self, event):
+        '''open corresponding view of index'''
+
+        self.handle_left_click(event)
+        if self.master.import_flag:
+            rowclicked = self.get_row_clicked(event)
+            self.open_viewer(rowclicked)
+
+    def open_viewer(self, id:int= None):
+        if self.viewer == None or not self.viewer.winfo_exists():
+            self.viewer = self.ToplevelViewer(id)
+        else:
+            self.viewer.update_id(id)
+            # self.viewer.focus()
+
+    class ToplevelViewer(ctk.CTkToplevel):
+        def __init__(self, id, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.resizable(0,0)
+            self.title("magnified viewer")
+            self.pixel_scale:int = 2
+            self.canvas_length:int = 400        # actual image size is canvas_length/pixel_scale
+            self.id = id
+            self.channels = ['UV', 'FITC', 'PE', 'APC']
+            self.channel_index:int = 0
+
+            self.update_id(self.id)
+
+            self.channel_switch = ctk.CTkSegmentedButton(self, values= self.channels, command= self.segmentated_button_callback)
+            self.channel_switch.set('UV')
+            self.channel_switch.grid(row= 0, column= 0, sticky= 'we')
+
+        def update_id(self, id):
+            self.all_slices = ccv.image_slice(self.master.img_0, self.master.img_1, self.master.img_3,
+                                            self.master.df, id, self.pixel_scale, self.canvas_length)
+            self.zd = ZoomDrag(self, self.all_slices[self.channel_index], width= self.canvas_length, height= self.canvas_length)
+            self.zd.grid(row= 1, column= 0)
+        
+        def segmentated_button_callback(self, channel):
+            self.channel_index = self.channels.index(channel)
+            self.zd._load_image(self.all_slices[self.channel_index])
+
+
+class ZoomDrag(tk.Canvas):
+    def __init__(self, master: any, image, width: int = 400, height: int = 400, bg = 'black', **kwargs):
+        super().__init__(master, width=width, height=height, bg= bg, **kwargs)
+
+        self.image = image
+        self.canv_len = width
+        self.scale = 1.0
+        self._add_bindings()
+        self.offset = (0,0)
+
+        self.pil_image = Image.fromarray(self.image)
+        self.tkimage = ImageTk.PhotoImage(self.pil_image)
+        self.image_item = self.create_image(int(self.canv_len/2), int(self.canv_len/2), image=self.tkimage, anchor= 'center')        
+    
+    def _add_bindings(self):
+        self.bind('<Button-1>', self._start_drag)
+        self.bind('<B1-Motion>', self._drag)
+        self.bind('<MouseWheel>', self._zoom)
+        self.bind('<Button-4>', self._zoom)
+        self.bind('<Button-5>', self._zoom)
+
+    def _load_image(self, alt_img = None):
+
+        self.delete('all')
+        if alt_img is not None:
+            self.image = alt_img
+            self.pil_image = Image.fromarray(self.image)
+            width = int(self.pil_image.size[0] * self.scale)
+            height = int(self.pil_image.size[1] * self.scale)
+            resized_image = self.pil_image.resize((width, height), Image.LANCZOS)
+            self.tkimage = ImageTk.PhotoImage(resized_image)
+            anchor_x, anchor_y = int(self.canv_len/2)+self.offset[0], int(self.canv_len/2)+self.offset[1]
+            self.image_item = self.create_image(anchor_x, anchor_y, image=self.tkimage, anchor='center')
+
+    def _start_drag(self, event):
+        self.start_x, self.start_y = event.x, event.y
+    
+    def _drag(self, event):
+
+        if self.scale > 1:
+            dx = event.x- self.start_x
+            dy = event.y- self.start_y
+            self.move(self.image_item, dx, dy)
+
+            self.start_x, self.start_y = event.x, event.y
+
+            # get bounding box of image item
+            bbox = self.bbox(self.image_item)
+
+            # check if the new position of the image exceeds the boundaries of the canvas
+            if bbox[0] > 0:
+                # the image is exceeding the left boundary
+                self.move(self.image_item, -bbox[0], 0)
+            elif bbox[2] < self.winfo_width():
+                # the image is exceeding the right boundary
+                self.move(self.image_item, self.winfo_width() - bbox[2], 0)
+            if bbox[1] > 0:
+                # the image is exceeding the top boundary
+                self.move(self.image_item, 0, -bbox[1])
+            elif bbox[3] < self.winfo_height():
+                # the image is exceeding the bottom boundary
+                self.move(self.image_item, 0, self.winfo_height() - bbox[3])
+        
+        # update offset
+        bbox = self.bbox(self.image_item)
+        offset_x = int((bbox[0]+bbox[2]-self.canv_len)/2)
+        offset_y = int((bbox[1]+bbox[3]-self.canv_len)/2)
+        self.offset = offset_x, offset_y
+
+    def _zoom(self, event):
+        scale_before = self.scale
+
+        # update offset
+        bbox = self.bbox(self.image_item)
+        offset_x = int((bbox[0]+bbox[2]-self.canv_len)/2)
+        offset_y = int((bbox[1]+bbox[3]-self.canv_len)/2)
+        self.offset = offset_x, offset_y
+
+        if event.delta > 0 or event.num == 4:
+            self.scale *= 1.1
+        elif event.delta < 0 or event.num == 5:
+            self.scale /= 1.1
+        self.scale = min(max(self.scale, 1), 10.0)  # limit scale between 1 and 10.0
+        scale_after = self.scale
+
+        self.offset = tuple(map(lambda x: int(x*(scale_after/scale_before)), self.offset))  # scale the offset simultaneously
+        self._resize_image()
+    
+    def _resize_image(self):
+        width = int(self.pil_image.size[0] * self.scale)
+        height = int(self.pil_image.size[1] * self.scale)
+        resized_image = self.pil_image.resize((width, height), Image.LANCZOS)
+        self.tkimage = ImageTk.PhotoImage(resized_image)
+        self.delete('all')
+
+        anchor_x, anchor_y = int(self.canv_len/2)+self.offset[0], int(self.canv_len/2)+self.offset[1]
+        self.image_item = self.create_image(anchor_x, anchor_y, image=self.tkimage, anchor='center')
+
+        bbox = self.bbox(self.image_item)
+        # check if the new position of the image exceeds the boundaries of the canvas, and update offset
+        if bbox[0] > 0:
+            # the image is exceeding the left boundary
+            self.move(self.image_item, -bbox[0], 0)
+        elif bbox[2] < self.winfo_width():
+            # the image is exceeding the right boundary
+            self.move(self.image_item, self.winfo_width() - bbox[2], 0)
+        if bbox[1] > 0:
+            # the image is exceeding the top boundary
+            self.move(self.image_item, 0, -bbox[1])
+        elif bbox[3] < self.winfo_height():
+            # the image is exceeding the bottom boundary
+            self.move(self.image_item, 0, self.winfo_height() - bbox[3])
 
 if __name__ == "__main__":
     app = App()
