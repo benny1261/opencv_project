@@ -6,6 +6,7 @@ import numpy as np
 from threading import Thread
 import pandas as pd
 from skimage import measure, morphology
+from PIL import Image
 import time
 
 # preprocess parameters
@@ -90,7 +91,7 @@ class Cv_api:
 
         if self.master.home_frame_type.get() == 'CTC':
 
-            image_postprocessing(self.master.pre_1, self.master.pre_0, self.master.pre_3,
+            image_postprocessing(self.master.pre_0, self.master.pre_1, self.master.pre_3,
             self.master.df, self.master.result, path= self.master.export_dir.get(),
             mark= self.master.export_frame.mark_switch.get(),
             mask= self.master.export_frame.mask_switch.get(), beta= BETA)
@@ -177,7 +178,44 @@ also optional marks on exported image, parameter img should be grayscale\n
     return pd.DataFrame(data)
 
 
-def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, result: pd.DataFrame,
+def image_slice(orig_hct: np.ndarray, orig_ep: np.ndarray, orig_wbc: np.ndarray, df: pd.DataFrame, index, pixel_scale:int, canv_len:int)-> tuple:
+    '''image slicing for toplevel viewer'''
+    UV_COLOR = (0, 92, 255)     # RGB
+    FITC_COLOR = (45, 255, 0)   # RGB
+    APC_COLOR = (243, 255, 0)   # RGB
+    PE_COLOR = (255, 0, 0)      # RGB
+    RADIUS: int = 10
+    THICKNESS: int = 1
+    CIRCLE_COLOR = (255, 255, 255)
+
+    half_canv = int(canv_len/2)
+    half_img = int(half_canv/pixel_scale)
+    center = df.at[index, 'center']         # (x, y)
+
+    # slicing
+    hct_slice = orig_hct[center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
+    ep_slice = orig_ep[center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
+    wbc_slice = orig_wbc[center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
+
+    # scale sliced image back to canv_length
+    hct_slice = cv2.resize(hct_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
+    ep_slice = cv2.resize(ep_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
+    wbc_slice = cv2.resize(wbc_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
+
+    # normalize 255 to 1 then int(norm*COLOR), have to devide first to prevent uint8 overflow
+    hct_slice = np.dstack((hct_slice/255*UV_COLOR[0], hct_slice/255*UV_COLOR[1], hct_slice/255*UV_COLOR[2])).astype(np.uint8)
+    ep_slice = np.dstack((ep_slice/255*FITC_COLOR[0], ep_slice/255*FITC_COLOR[1], ep_slice/255*FITC_COLOR[2])).astype(np.uint8)
+    wbc_slice = np.dstack((wbc_slice/255*PE_COLOR[0], wbc_slice/255*PE_COLOR[1], wbc_slice/255*PE_COLOR[2])).astype(np.uint8)
+
+    # add circle
+    cv2.circle(hct_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
+    cv2.circle(ep_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
+    cv2.circle(wbc_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
+
+    return hct_slice, ep_slice, None, wbc_slice
+
+
+def image_postprocessing(hct_img: np.ndarray, ep_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, result: pd.DataFrame,
                          path: str, mark= False, mask= False, beta = BETA):
     '''takes both information and result dataframe as input\n
     mark -> add mark on merge image\n
@@ -209,7 +247,7 @@ def image_postprocessing(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.nd
 
         if mark:
             cv2.circle(final, center, 30, color, 2)
-            cv2.putText(final, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),        # label index starts from 1
+            cv2.putText(final, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),        # label index starts from 0
             fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
             cv2.putText(final, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
             fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)

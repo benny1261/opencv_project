@@ -1,14 +1,17 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk
 from customtkinter import ThemeManager
 import os
-from PIL import Image
+from PIL import Image, ImageTk
 from tkinter import filedialog
+import pandas as pd
 from util.opencv import Import_thread, Cv_api
 import util.opencv as ccv
 from util.tkSliderWidget import Slider
-import pandas as pd
+from pandastable.core import Table, config, RowHeader, IndexHeader, ColumnHeader, ToolBar, statusBar
+from pandastable.dialogs import applyStyle, AutoScrollbar
+from pandastable.util import check_multiindex
+from pandastable.headers import createSubMenu
 
 class App(ctk.CTk):
     def __init__(self):
@@ -24,7 +27,7 @@ class App(ctk.CTk):
         self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
         self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
         self.import_flag = False
-        self.df, self.result = [], []
+        self.df, self.result = pd.DataFrame(), pd.DataFrame()
 
         # initializing window position to screen center
         min_width, min_height = 720, 450
@@ -123,10 +126,10 @@ class App(ctk.CTk):
 
         # create examine frame
         self.examine_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
-        self.examine_frame.grid_rowconfigure(0, weight= 1)
-        self.examine_frame.grid_columnconfigure(0, weight= 1)
-        self.tree = MyTreeView(self.examine_frame)
-        self.tree.grid(row= 0, column= 0, sticky= 'nsew', padx= 5, pady= 5)
+        # self.examine_frame.grid_rowconfigure(0, weight= 1)
+        # self.examine_frame.grid_columnconfigure(0, weight= 1)
+        self.table = MyTable(self.examine_frame, master = self)
+        self.table.show()
         # ctk.CTkFrame(self.examine_frame, corner_radius= 10, fg_color="transparent").grid(row= 0, column= 1, padx= (0, 5), pady= 5, sticky= 'nsew')
 
         # create export frame
@@ -134,7 +137,6 @@ class App(ctk.CTk):
 
         # select default frame
         self.select_frame_by_name("home")
-
 
     def select_frame_by_name(self, name):
         # set button color for selected button
@@ -227,8 +229,11 @@ class App(ctk.CTk):
                 # update result in home frame
                 self.filter_tab.auto()
 
-                # pass data to treeview
-                self.tree.import_data(self.result)
+                # pass data to table and configure row color
+                self.table.model.df = self.result.iloc[:, :-1]  # uses iloc to choose data without 'target' column, and this makes a copy(or not?)
+                target_rows = self.result.query('target > 0').index.tolist()
+                self.table.setRowColors(rows= target_rows, clr= "#984B4B",cols= 'all')  # set target row red background
+                self.table.redraw()
 
             else:
                 self.home_frame_src.configure(text_color= ("#CE0000", "#750000"), border_color= "#AD5A5A", fg_color= ("#FFD2D2", "#743A3A"))
@@ -391,74 +396,581 @@ class ExportFrame(ctk.CTkFrame):
         self.destination_button.grid(row= 1, column= 1, padx= (0, 10), pady= (0, 40), sticky= 'we')
 
 
-class MyTreeView(ctk.CTkFrame):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
+class MyTable(Table):
+    def __init__(self, parent=None, model=None, dataframe=None, width=None, height=None, rows=20, cols=5,
+                 showtoolbar=False, showstatusbar=True, editable=False, enable_menus=True, master = None, **kwargs):       # add master myself
+        super().__init__(parent, model, dataframe, width, height, rows, cols, showtoolbar, showstatusbar, editable, enable_menus, **kwargs)
 
-        self.grid_rowconfigure(0, weight= 1)
-        self.grid_columnconfigure(0, weight= 1)
+        self.master = master
+        self.toggle_color = '#A5A552'
+        self.setTheme('dark')
+        options = {
+        # 'align': 'w',
+        # 'cellbackgr': '#F4F4F3',
+        # 'cellwidth': 80,
+        # 'floatprecision': 2,
+        # 'font': 'Arial',
+        # 'fontsize': 12,
+        # 'fontstyle': '',
+        # 'grid_color': '#ABB1AD',
+        # 'linewidth': 1,
+        # 'rowheight': 22,
+        # 'textcolor': 'black'
+        'rowselectedcolor': '#313300',
+        # 'boxoutlinecolor' : 'white',
+        'showindex': True     # make header of row is the number of index
+        }
+        config.apply_options(options, self)
+        self.bind("<Alt-Button-1>",self.handle_left_alt_click)
+        self.bind("<Alt-Button-3>", self.handle_right_alt_click)
+        self.toggled_cell = []
 
-        # set style
-        self.style = ttk.Style()
-        self.style.theme_use('clam')
-        self.style.configure("cus.Treeview", background="Transparent", fieldbackground="transparent", foreground="black")
-        self.style.configure("cus.Treeview.Heading", background= 'gray80', font= ('Times', 10, 'bold'))
-        self.style.layout("cus.Treeview", [('cus.Treeview.treearea', {'sticky': 'nswe'})]) # Remove the borders
+        self.viewer = None
 
-        # initializing widgets
-        self.scrollbar = tk.Scrollbar(self)
-        self.treeview = ttk.Treeview(self, yscrollcommand= self.scrollbar.set, selectmode= 'browse', style= 'cus.Treeview')
-        self.scrollbar.config(command= self.treeview.yview)
+    def redrawVisible(self, event=None, callback=None):
+        """Overridden function, custumized to make textcolor in toggled cell not covered by redrawing
+        """
 
-        # define columns
-        self.treeview['columns'] = ("ID", "hct", "wbc", "roundness", "sharpness", "size")
-        self.treeview.column("#0", width= 0, stretch= False)
-        self.treeview.column("ID", anchor= 'center', width= 40, stretch= False)
-        self.treeview.column("hct", anchor= 'center', width= 1, stretch= True)
-        self.treeview.column("wbc", anchor= 'center', width= 1, stretch= True)
-        self.treeview.column("roundness", anchor= 'center', width= 1, stretch= True)
-        self.treeview.column("sharpness", anchor= 'center', width= 1, stretch= True)
-        self.treeview.column("size", anchor= 'center', width= 1, stretch= True)
+        if not hasattr(self, 'colheader'):
+            return
+        model = self.model
+        self.rows = len(self.model.df.index)
+        self.cols = len(self.model.df.columns)
+        if self.cols == 0 or self.rows == 0:
+            self.delete('entry')
+            self.delete('rowrect','colrect')
+            self.delete('currentrect','fillrect')
+            self.delete('gridline','text')
+            self.delete('multicellrect','multiplesel')
+            self.delete('colorrect')
+            self.setColPositions()
+            if self.cols == 0:
+                self.colheader.redraw()
+            if self.rows == 0:
+                self.visiblerows = []
+                self.rowheader.redraw()
+            return
+        self.tablewidth = (self.cellwidth) * self.cols
+        self.configure(bg=self.cellbackgr)
+        self.setColPositions()
 
-        # create headings
-        self.treeview.heading("#0", text= "")
-        self.treeview.heading("ID", text= "ID", anchor= 'w')
-        self.treeview.heading("hct", text= "hct", anchor= 'w')
-        self.treeview.heading("wbc", text= "wbc", anchor= 'w')
-        self.treeview.heading("roundness", text= "roundness", anchor= 'w')
-        self.treeview.heading("sharpness", text= "sharpness", anchor= 'w')
-        self.treeview.heading("size", text= "size", anchor= 'w')
+        #are we drawing a filtered subset of the recs?
+        if self.filtered == True:
+            self.delete('colrect')
 
-        # set tags
-        self.treeview.tag_configure('nontarget', background= "#E1C4C4")
-        self.treeview.tag_configure('target', background= "#B3D9D9")
+        self.rowrange = list(range(0,self.rows))
+        self.configure(scrollregion=(0,0, self.tablewidth+self.x_start,
+                        self.rowheight*self.rows+10))
 
-        # placing widgets in view frame
-        self.treeview.grid(row= 0, column= 0, sticky= 'nsew')
-        self.scrollbar.grid(row= 0, column= 1, sticky= 'nsw')
+        x1, y1, x2, y2 = self.getVisibleRegion()
+        startvisiblerow, endvisiblerow = self.getVisibleRows(y1, y2)
+        self.visiblerows = list(range(startvisiblerow, endvisiblerow))
+        startvisiblecol, endvisiblecol = self.getVisibleCols(x1, x2)
+        self.visiblecols = list(range(startvisiblecol, endvisiblecol))
 
-        # bind command
-        self.treeview.bind("<Double-1>", self.on_click)
+        self.drawGrid(startvisiblerow, endvisiblerow)
+        align = self.align
+        self.delete('fillrect')
+        bgcolor = self.cellbackgr
+        df = self.model.df
 
-    def import_data(self, data: pd.DataFrame):
-        '''pass data in pandas dataframe to treeview'''
-        for row in data.itertuples():
-            # print(row)        # out: Pandas(Index=59, hoechst=True, wbc=False, roundness=True, sharpness=True, size=True, target=False)
-            # print(row[1:])    # out: (True, False, True, True, True, False)
-
-            if row[-1]:                     # if target:
-                self.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('target',))
+        prec = self.floatprecision
+        rows = self.visiblerows
+        for col in self.visiblecols:
+            coldata = df.iloc[rows,col]
+            colname = df.columns[col]
+            cfa = self.columnformats['alignment']
+            if colname in cfa:
+                align = cfa[colname]
             else:
-                self.treeview.insert(parent= '', index= 'end', iid= row.Index, text= "", values= row[:-1], tags= ('nontarget',))
+                align = self.align
+            if prec != 0:
+                if coldata.dtype == 'float64':
+                    coldata = coldata.apply(lambda x: self.setPrecision(x, prec), 1)
+            coldata = coldata.astype(object).fillna('')
+            offset = rows[0]
+            for row in self.visiblerows:
+                text = coldata.iloc[row-offset]
+                # modified chunk ##################
+                if (row, col) in self.toggled_cell:
+                    self.drawText(row, col, text, align, self.toggle_color)
+                else:
+                    self.drawText(row, col, text, align, self.textcolor)
+                ###################################
+
+        self.colorColumns()
+        self.colorRows()
+        self.colheader.redraw(align=self.align)
+        self.rowheader.redraw()
+        self.rowindexheader.redraw()
+        self.drawSelectedRow()
+        self.drawSelectedRect(self.currentrow, self.currentcol)
+
+        if len(self.multiplerowlist)>1:
+            self.rowheader.drawSelectedRows(self.multiplerowlist)
+            self.drawMultipleRows(self.multiplerowlist)
+            self.drawMultipleCells()
+
+        self.drawHighlighted()
+        return
+
+    class AdjColumnHeader(ColumnHeader):
+        '''adjust function in ColumnHeader module'''
+        def __init__(self, parent=None, table=None, bg='gray25'):
+            super().__init__(parent, table, bg)
+        
+        def popupMenu(self, event):
+            """Add left and right click behaviour for column header"""
+
+            df = self.table.model.df
+            if len(df.columns)==0:
+                return
+            ismulti = check_multiindex(df.columns)
+            colname = str(df.columns[self.table.currentcol])
+            currcol = self.table.currentcol
+            multicols = self.table.multiplecollist
+            colnames = list(df.columns[multicols])[:4]
+            colnames = [str(i)[:20] for i in colnames]
+            if len(colnames)>2:
+                colnames = ','.join(colnames[:2])+'+%s others' %str(len(colnames)-2)
+            else:
+                colnames = ','.join(colnames)
+            popupmenu = tk.Menu(self, tearoff = 0)
+            def popupFocusOut(event):
+                popupmenu.unpost()
+
+            # columncommands = {"Rename": self.renameColumn,
+            #                 "Add": self.table.addColumn,
+            #                 #"Delete": self.table.deleteColumn,
+            #                 "Copy": self.table.copyColumn,
+            #                 "Move to Start": self.table.moveColumns,
+            #                 "Move to End": lambda: self.table.moveColumns(pos='end')
+            #                 }
+            formatcommands = {'Set Color': self.table.setColumnColors,
+                            'Color by Value': self.table.setColorbyValue,
+                            'Alignment': self.table.setAlignment,
+                            # 'Wrap Header' : self.table.setWrap
+                            }
+            popupmenu.add_command(label="Sort by " + colnames + ' \u2193',
+                        command=lambda : self.table.sortTable(ascending=[1 for i in multicols]))
+            popupmenu.add_command(label="Sort by " + colnames + ' \u2191',
+                command=lambda : self.table.sortTable(ascending=[0 for i in multicols]))
+            # popupmenu.add_command(label="Set %s as Index" %colnames, command=self.table.setindex)
+            # popupmenu.add_command(label="Delete Column(s)", command=self.table.deleteColumn)
+            # if ismulti == True:
+            #     popupmenu.add_command(label="Flatten Index", command=self.table.flattenIndex)
+            # popupmenu.add_command(label="Fill With Data", command=self.table.fillColumn)
+            # popupmenu.add_command(label="Create Categorical", command=self.table.createCategorical)
+            # popupmenu.add_command(label="Apply Function", command=self.table.applyColumnFunction)
+            # popupmenu.add_command(label="Resample/Transform", command=self.table.applyTransformFunction)
+            # popupmenu.add_command(label="Value Counts", command=self.table.valueCounts)
+            # popupmenu.add_command(label="String Operation", command=self.table.applyStringMethod)
+            # popupmenu.add_command(label="Date/Time Conversion", command=self.table.convertDates)
+            # popupmenu.add_command(label="Set Data Type", command=self.table.setColumnType)
+
+            # createSubMenu(popupmenu, 'Column', columncommands)
+            createSubMenu(popupmenu, 'Format', formatcommands)
+            popupmenu.bind("<FocusOut>", popupFocusOut)
+            popupmenu.focus_set()
+            popupmenu.post(event.x_root, event.y_root)
+            applyStyle(popupmenu)
+            return popupmenu
+
+        def handle_mouse_drag(self, event):
+            """Handle column drag, move cols function deleted"""
+
+            x=int(self.canvasx(event.x))
+            if self.atdivider == 1:
+                self.table.delete('resizeline')
+                self.delete('resizeline')
+                self.table.create_line(x, 0, x, self.table.rowheight*self.table.rows,
+                                    width=2, fill='gray', tag='resizeline')
+                self.create_line(x, 0, x, self.height,
+                                    width=2, fill='gray', tag='resizeline')
+                # return
+            # else:
+            #     w = self.table.cellwidth
+            #     self.draggedcol = self.table.get_col_clicked(event)
+            #     coords = self.coords('dragrect')
+            #     if len(coords)==0:
+            #         return
+            #     x1, y1, x2, y2 = coords
+            #     x=int(self.canvasx(event.x))
+            #     y = self.canvasy(event.y)
+            #     self.move('dragrect', x-x1-w/2, 0)
+
+            return
+
+    class AdjRowHeader(RowHeader):
+        '''adjust function in RowHeader module'''
+        def __init__(self, parent=None, table=None, width=50, bg='gray75'):
+            super().__init__(parent, table, width, bg)
+        
+        def popupMenu(self, event, rows=None, cols=None, outside=None):
+            """Add left and right click behaviour for canvas, should not have to override
+                this function, it will take its values from defined dicts in constructor"""
+
+            defaultactions = {"Sort by index" : lambda: self.table.sortTable(index=True),
+                            # "Reset index" : lambda: self.table.resetIndex(),
+                            # "Toggle index" : lambda: self.toggleIndex(),
+                            "Copy index to column" : lambda: self.table.copyIndex(),
+                            # "Rename index" : lambda: self.table.renameIndex(),
+                            # "Sort columns by row" : lambda: self.table.sortColumnIndex(),
+                            "Select All" : self.table.selectAll,
+                            # "Add Row(s)" : lambda: self.table.addRows(),
+                            # "Delete Row(s)" : lambda: self.table.deleteRow(ask=True),
+                            # "Duplicate Row(s)":  lambda: self.table.duplicateRows(),
+                            "Set Row Color" : lambda: self.table.setRowColors(cols='all')}
+            main = ["Sort by index", "Copy index to column", "Set Row Color"]
+
+            popupmenu = tk.Menu(self, tearoff = 0)
+            def popupFocusOut(event):
+                popupmenu.unpost()
+            for action in main:
+                popupmenu.add_command(label=action, command=defaultactions[action])
+
+            popupmenu.bind("<FocusOut>", popupFocusOut)
+            popupmenu.focus_set()
+            popupmenu.post(event.x_root, event.y_root)
+            applyStyle(popupmenu)
+            return popupmenu
+
+    def popupMenu(self, event, rows=None, cols=None, outside=None):
+        """overridden function by myself"""
+
+        defaultactions = {
+                        "Copy" : lambda: self.copy(rows, cols),
+                        "Undo" : lambda: self.undo(),
+                        #"Paste" : lambda: self.paste(rows, cols),
+                        "Fill Down" : lambda: self.fillDown(rows, cols),
+                        #"Fill Right" : lambda: self.fillAcross(cols, rows),
+                        "Add Row(s)" : lambda: self.addRows(),
+                        #"Delete Row(s)" : lambda: self.deleteRow(),
+                        "Add Column(s)" : lambda: self.addColumn(),
+                        "Delete Column(s)" : lambda: self.deleteColumn(),
+                        "Clear Data" : lambda: self.deleteCells(rows, cols),
+                        "Select All" : self.selectAll,
+                        #"Auto Fit Columns" : self.autoResizeColumns,
+                        "Table Info" : self.showInfo,
+                        "Set Color" : self.setRowColors,
+                        "Show as Text" : self.showasText,
+                        "Filter Rows" : self.queryBar,
+                        "New": self.new,
+                        "Open": self.load,
+                        "Save": self.save,
+                        "Save As": self.saveAs,
+                        "Import Text/CSV": lambda: self.importCSV(dialog=True),
+                        "Import hdf5": lambda: self.importHDF(dialog=True),
+                        "Export": self.doExport,
+                        "Plot Selected" : self.plotSelected,
+                        "Hide plot" : self.hidePlot,
+                        "Show plot" : self.showPlot,
+                        "Preferences" : self.showPreferences,
+                        "Table to Text" : self.showasText,
+                        "Clean Data" : self.cleanData,
+                        "Clear Formatting" : self.clearFormatting,
+                        "Undo Last Change": self.undo,
+                        "Copy Table": self.copyTable,
+                        "Find/Replace": self.findText}
+
+        main = ["Undo", "Set Color"]
+        general = ["Select All", "Filter Rows", "Table Info", "Preferences"]
+
+        def add_commands(fieldtype):
+            """Add commands to popup menu for column type and specific cell"""
+            functions = self.columnactions[fieldtype]
+            for f in list(functions.keys()):
+                func = getattr(self, functions[f])
+                popupmenu.add_command(label=f, command= lambda : func(row,col))
+            return
+
+        popupmenu = tk.Menu(self, tearoff = 0)
+        def popupFocusOut(event):
+            popupmenu.unpost()
+
+        if outside == None:
+            #if outside table, just show general items
+            row = self.get_row_clicked(event)
+            col = self.get_col_clicked(event)
+            coltype = self.model.getColumnType(col)
+            def add_defaultcommands():
+                """now add general actions for all cells"""
+                for action in main:
+                    if action == 'Fill Down' and (rows == None or len(rows) <= 1):
+                        continue
+                    if action == 'Fill Right' and (cols == None or len(cols) <= 1):
+                        continue
+                    if action == 'Undo' and self.prevdf is None:
+                        continue
+                    else:
+                        popupmenu.add_command(label=action, command=defaultactions[action])
+                return
+
+            if coltype in self.columnactions:
+                add_commands(coltype)
+            add_defaultcommands()
+
+        for action in general:
+            popupmenu.add_command(label=action, command=defaultactions[action])
+
+        popupmenu.bind("<FocusOut>", popupFocusOut)
+        popupmenu.focus_set()
+        popupmenu.post(event.x_root, event.y_root)
+        applyStyle(popupmenu)
+        return popupmenu
     
-    def on_click(self, event, changed_item= []):
-        if not self.treeview.identify_element(event.x, event.y) == '':      # do nothing when there's nothing
-            row = self.treeview.identify_row(event.y)
-            col = self.treeview.identify_column(event.x)
-            if self.treeview.set(row, col) == 'True':                       # get value
-                self.treeview.set(row, col, 'False')
-            elif self.treeview.set(row, col) == 'False':
-                self.treeview.set(row, col, 'True')
+    def show(self, callback=None):
+        """Overridden function in Table submodule to use changed function in headers submodule"""
+
+        #Add the table and header to the frame
+        self.rowheader = self.AdjRowHeader(self.parentframe, self)
+        self.colheader = self.AdjColumnHeader(self.parentframe, self, bg='gray25')                          # custumized
+        self.rowindexheader = IndexHeader(self.parentframe, self, bg='gray75')
+        self.Yscrollbar = AutoScrollbar(self.parentframe,orient='vertical',command=self.set_yviews)
+        self.Yscrollbar.grid(row=1,column=2,rowspan=1,sticky='news',pady=0,ipady=0)
+        self.Xscrollbar = AutoScrollbar(self.parentframe,orient="horizontal",command=self.set_xviews)
+        self.Xscrollbar.grid(row=2,column=1,columnspan=1,sticky='news')
+        self['xscrollcommand'] = self.Xscrollbar.set
+        self['yscrollcommand'] = self.Yscrollbar.set
+        self.colheader['xscrollcommand'] = self.Xscrollbar.set
+        self.rowheader['yscrollcommand'] = self.Yscrollbar.set
+        self.parentframe.rowconfigure(1,weight=1)
+        self.parentframe.columnconfigure(1,weight=1)
+
+        self.rowindexheader.grid(row=0,column=0,rowspan=1,sticky='news')
+        self.colheader.grid(row=0,column=1,rowspan=1,sticky='news')
+        self.rowheader.grid(row=1,column=0,rowspan=1,sticky='news')
+        self.grid(row=1,column=1,rowspan=1,sticky='news',pady=0,ipady=0)
+
+        self.adjustColumnWidths()
+        #bind redraw to resize, may trigger redraws when widgets added
+        self.parentframe.bind("<Configure>", self.resized) #self.redrawVisible)
+        self.colheader.xview("moveto", 0)
+        self.xview("moveto", 0)
+        if self.showtoolbar == True:
+            self.toolbar = ToolBar(self.parentframe, self)
+            self.toolbar.grid(row=0,column=3,rowspan=2,sticky='news')
+        if self.showstatusbar == True:
+            self.statusbar = statusBar(self.parentframe, self)
+            self.statusbar.grid(row=3,column=0,columnspan=2,sticky='ew')
+
+        self.currwidth = self.parentframe.winfo_width()
+        self.currheight = self.parentframe.winfo_height()
+        if hasattr(self, 'pf'):
+            self.pf.updateData()
+        return
+
+    def drawSelectedRow(self):
+        """Overridden function, delete original draw single row function"""
+
+        self.delete('rowrect')
+        row = self.currentrow
+        return
+    
+    def drawSelectedRect(self, row, col, color='#084B8A', fillcolor=None):
+        """Overridden function, change Rect color"""
+
+        if col >= self.cols:
+            return
+        self.delete('currentrect')
+        if color == None:
+            color = 'gray25'
+        w=2
+        if row == None:
+            return
+        x1,y1,x2,y2 = self.getCellCoords(row,col)
+        rect = self.create_rectangle(x1+w/2+1,y1+w/2+1,x2-w/2,y2-w/2,
+                                  outline=color,
+                                  fill=fillcolor,
+                                  width=w,
+                                  tag='currentrect')
+        #raise text above all
+        self.lift('celltext'+str(col)+'_'+str(row))
+        return
+
+    # Not overridden part of pandastable
+    def handle_right_alt_click(self, event):
+        '''toggle boolean when alt+left click'''
+
+        rowclicked = self.get_row_clicked(event)
+        colclicked = self.get_col_clicked(event)
+
+        if not self.model.df.isnull().values.any():
+            self.model.df.iat[rowclicked, colclicked] = bool(not self.model.df.iat[rowclicked, colclicked])     # toggle
+
+            # toggle font color
+            if (rowclicked, colclicked) not in self.toggled_cell:
+                self.toggled_cell.append((rowclicked, colclicked))
+                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.toggle_color)
+            else:
+                self.toggled_cell.remove((rowclicked, colclicked))
+                self.drawText(rowclicked, colclicked, self.model.df.iat[rowclicked, colclicked], align= self.align, fgcolor= self.textcolor)
+
+            self.master.result.iat[rowclicked, colclicked] = self.model.df.iat[rowclicked, colclicked]          # propagate back data
+
+            # toggle row background color and 'target' column in result dataframe
+            if self.model.df.iloc[rowclicked, :].values.all():
+                self.setRowColors(rows= rowclicked, clr= "#984B4B",cols= 'all')
+                self.master.result.iat[rowclicked, -1] = True
+            else:
+                self.setRowColors(rows= rowclicked, clr= self.cellbackgr,cols= 'all')
+                self.master.result.iat[rowclicked, -1] = False
+
+    def handle_left_alt_click(self, event):
+        '''open corresponding view of index'''
+
+        self.handle_left_click(event)
+        if self.master.import_flag:
+            rowclicked = self.get_row_clicked(event)
+            self.open_viewer(rowclicked)
+
+    def open_viewer(self, id:int= None):
+        if self.viewer == None or not self.viewer.winfo_exists():
+            self.viewer = self.ToplevelViewer(id)
+        else:
+            self.viewer.update_id(id)
+            # self.viewer.focus()
+
+    class ToplevelViewer(ctk.CTkToplevel):
+        def __init__(self, id, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.resizable(0,0)
+            self.title("magnified viewer")
+            self.pixel_scale:int = 2
+            self.canvas_length:int = 400        # actual image size is canvas_length/pixel_scale
+            self.id = id
+            self.channels = ['UV', 'FITC', 'PE', 'APC']
+            self.channel_index:int = 0
+
+            self.update_id(self.id)
+
+            self.channel_switch = ctk.CTkSegmentedButton(self, values= self.channels, command= self.segmentated_button_callback)
+            self.channel_switch.set('UV')
+            self.channel_switch.grid(row= 0, column= 0, sticky= 'we')
+
+        def update_id(self, id):
+            self.all_slices = ccv.image_slice(self.master.img_0, self.master.img_1, self.master.img_3,
+                                            self.master.df, id, self.pixel_scale, self.canvas_length)
+            self.zd = ZoomDrag(self, self.all_slices[self.channel_index], width= self.canvas_length, height= self.canvas_length)
+            self.zd.grid(row= 1, column= 0)
+        
+        def segmentated_button_callback(self, channel):
+            self.channel_index = self.channels.index(channel)
+            self.zd._load_image(self.all_slices[self.channel_index])
+
+
+class ZoomDrag(tk.Canvas):
+    def __init__(self, master: any, image, width: int = 400, height: int = 400, bg = 'black', **kwargs):
+        super().__init__(master, width=width, height=height, bg= bg, **kwargs)
+
+        self.image = image
+        self.canv_len = width
+        self.scale = 1.0
+        self._add_bindings()
+        self.offset = (0,0)
+
+        self.pil_image = Image.fromarray(self.image)
+        self.tkimage = ImageTk.PhotoImage(self.pil_image)
+        self.image_item = self.create_image(int(self.canv_len/2), int(self.canv_len/2), image=self.tkimage, anchor= 'center')        
+    
+    def _add_bindings(self):
+        self.bind('<Button-1>', self._start_drag)
+        self.bind('<B1-Motion>', self._drag)
+        self.bind('<MouseWheel>', self._zoom)
+        self.bind('<Button-4>', self._zoom)
+        self.bind('<Button-5>', self._zoom)
+
+    def _load_image(self, alt_img = None):
+
+        self.delete('all')
+        if alt_img is not None:
+            self.image = alt_img
+            self.pil_image = Image.fromarray(self.image)
+            width = int(self.pil_image.size[0] * self.scale)
+            height = int(self.pil_image.size[1] * self.scale)
+            resized_image = self.pil_image.resize((width, height), Image.LANCZOS)
+            self.tkimage = ImageTk.PhotoImage(resized_image)
+            anchor_x, anchor_y = int(self.canv_len/2)+self.offset[0], int(self.canv_len/2)+self.offset[1]
+            self.image_item = self.create_image(anchor_x, anchor_y, image=self.tkimage, anchor='center')
+
+    def _start_drag(self, event):
+        self.start_x, self.start_y = event.x, event.y
+    
+    def _drag(self, event):
+
+        if self.scale > 1:
+            dx = event.x- self.start_x
+            dy = event.y- self.start_y
+            self.move(self.image_item, dx, dy)
+
+            self.start_x, self.start_y = event.x, event.y
+
+            # get bounding box of image item
+            bbox = self.bbox(self.image_item)
+
+            # check if the new position of the image exceeds the boundaries of the canvas
+            if bbox[0] > 0:
+                # the image is exceeding the left boundary
+                self.move(self.image_item, -bbox[0], 0)
+            elif bbox[2] < self.winfo_width():
+                # the image is exceeding the right boundary
+                self.move(self.image_item, self.winfo_width() - bbox[2], 0)
+            if bbox[1] > 0:
+                # the image is exceeding the top boundary
+                self.move(self.image_item, 0, -bbox[1])
+            elif bbox[3] < self.winfo_height():
+                # the image is exceeding the bottom boundary
+                self.move(self.image_item, 0, self.winfo_height() - bbox[3])
+        
+        # update offset
+        bbox = self.bbox(self.image_item)
+        offset_x = int((bbox[0]+bbox[2]-self.canv_len)/2)
+        offset_y = int((bbox[1]+bbox[3]-self.canv_len)/2)
+        self.offset = offset_x, offset_y
+
+    def _zoom(self, event):
+        scale_before = self.scale
+
+        # update offset
+        bbox = self.bbox(self.image_item)
+        offset_x = int((bbox[0]+bbox[2]-self.canv_len)/2)
+        offset_y = int((bbox[1]+bbox[3]-self.canv_len)/2)
+        self.offset = offset_x, offset_y
+
+        if event.delta > 0 or event.num == 4:
+            self.scale *= 1.1
+        elif event.delta < 0 or event.num == 5:
+            self.scale /= 1.1
+        self.scale = min(max(self.scale, 1), 10.0)  # limit scale between 1 and 10.0
+        scale_after = self.scale
+
+        self.offset = tuple(map(lambda x: int(x*(scale_after/scale_before)), self.offset))  # scale the offset simultaneously
+        self._resize_image()
+    
+    def _resize_image(self):
+        width = int(self.pil_image.size[0] * self.scale)
+        height = int(self.pil_image.size[1] * self.scale)
+        resized_image = self.pil_image.resize((width, height), Image.LANCZOS)
+        self.tkimage = ImageTk.PhotoImage(resized_image)
+        self.delete('all')
+
+        anchor_x, anchor_y = int(self.canv_len/2)+self.offset[0], int(self.canv_len/2)+self.offset[1]
+        self.image_item = self.create_image(anchor_x, anchor_y, image=self.tkimage, anchor='center')
+
+        bbox = self.bbox(self.image_item)
+        # check if the new position of the image exceeds the boundaries of the canvas, and update offset
+        if bbox[0] > 0:
+            # the image is exceeding the left boundary
+            self.move(self.image_item, -bbox[0], 0)
+        elif bbox[2] < self.winfo_width():
+            # the image is exceeding the right boundary
+            self.move(self.image_item, self.winfo_width() - bbox[2], 0)
+        if bbox[1] > 0:
+            # the image is exceeding the top boundary
+            self.move(self.image_item, 0, -bbox[1])
+        elif bbox[3] < self.winfo_height():
+            # the image is exceeding the bottom boundary
+            self.move(self.image_item, 0, self.winfo_height() - bbox[3])
 
 if __name__ == "__main__":
     app = App()
