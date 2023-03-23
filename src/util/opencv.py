@@ -6,6 +6,7 @@ import numpy as np
 from threading import Thread
 import pandas as pd
 from skimage import measure, morphology
+from PIL import Image
 import time
 
 # preprocess parameters
@@ -177,7 +178,7 @@ also optional marks on exported image, parameter img should be grayscale\n
     return pd.DataFrame(data)
 
 
-def image_slice(orig_hct: np.ndarray, orig_ep: np.ndarray, orig_wbc: np.ndarray, df: pd.DataFrame, index, win_size:int = 300)-> tuple:
+def image_slice(orig_hct: np.ndarray, orig_ep: np.ndarray, orig_wbc: np.ndarray, df: pd.DataFrame, index, pixel_scale:int, canv_len:int)-> tuple:
     '''image slicing for toplevel viewer'''
     UV_COLOR = (0, 92, 255)     # RGB
     FITC_COLOR = (45, 255, 0)   # RGB
@@ -187,12 +188,19 @@ def image_slice(orig_hct: np.ndarray, orig_ep: np.ndarray, orig_wbc: np.ndarray,
     THICKNESS: int = 1
     CIRCLE_COLOR = (255, 255, 255)
 
-    half_win = int(win_size/2)
-    center = df.at[index, 'center']         # (y, x) = 4558, 3845
-    center = (4558, 3845)                   # temp for index 10
-    hct_slice = orig_hct[center[0]-half_win:center[0]+half_win, center[1]-half_win:center[1]+half_win].copy()
-    ep_slice = orig_ep[center[0]-half_win:center[0]+half_win, center[1]-half_win:center[1]+half_win].copy()
-    wbc_slice = orig_wbc[center[0]-half_win:center[0]+half_win, center[1]-half_win:center[1]+half_win].copy()
+    half_canv = int(canv_len/2)
+    half_img = int(half_canv/pixel_scale)
+    center = df.at[index, 'center']         # (x, y)
+
+    # slicing
+    hct_slice = orig_hct[center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
+    ep_slice = orig_ep[center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
+    wbc_slice = orig_wbc[center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
+
+    # scale sliced image back to canv_length
+    hct_slice = cv2.resize(hct_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
+    ep_slice = cv2.resize(ep_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
+    wbc_slice = cv2.resize(wbc_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
 
     # normalize 255 to 1 then int(norm*COLOR), have to devide first to prevent uint8 overflow
     hct_slice = np.dstack((hct_slice/255*UV_COLOR[0], hct_slice/255*UV_COLOR[1], hct_slice/255*UV_COLOR[2])).astype(np.uint8)
@@ -200,9 +208,9 @@ def image_slice(orig_hct: np.ndarray, orig_ep: np.ndarray, orig_wbc: np.ndarray,
     wbc_slice = np.dstack((wbc_slice/255*PE_COLOR[0], wbc_slice/255*PE_COLOR[1], wbc_slice/255*PE_COLOR[2])).astype(np.uint8)
 
     # add circle
-    cv2.circle(hct_slice, center= (half_win, half_win), radius= RADIUS, color= CIRCLE_COLOR, thickness= THICKNESS)
-    cv2.circle(ep_slice, center= (half_win, half_win), radius= RADIUS, color= CIRCLE_COLOR, thickness= THICKNESS)
-    cv2.circle(wbc_slice, center= (half_win, half_win), radius= RADIUS, color= CIRCLE_COLOR, thickness= THICKNESS)
+    cv2.circle(hct_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
+    cv2.circle(ep_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
+    cv2.circle(wbc_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
 
     return hct_slice, ep_slice, None, wbc_slice
 
