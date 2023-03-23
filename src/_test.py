@@ -23,6 +23,10 @@ for i in img_list:
     elif '_3.jpg' in i:
         img_3 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
 
+df = pd.read_excel(os.path.join(path, 'data.xlsx'), index_col= 0)
+# result = pd.read_excel(os.path.join(path, 'result.xlsx'), index_col= 0)
+# print(df)
+
 # cv.show(img_0, 'test')
 cv2.waitKey(0)
 
@@ -36,10 +40,11 @@ class MyApp(ctk.CTk):
 
         self.img_test= img_0[1000:1300, 1000:1300]
         self.img_test2 = img_0[3300:3600, 3300:3600]
+        self.img_test3 = cv.image_slice(img_0, img_1, img_3, df, 10)[0]
         self.img = ctk.CTkImage(Image.fromarray(img_0), size= (300,300))
         self.img2 = ctk.CTkImage(Image.fromarray(img_1), size= (300,300))
 
-        self.zd = ZoomDrag(self, self.img_test)
+        self.zd = ZoomDrag(self, self.img_test3)
         self.zd.grid(row= 0, column= 0)
         self.zd = ZoomDrag(self, self.img_test2)
         self.zd.grid(row= 0, column= 1)
