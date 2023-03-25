@@ -126,11 +126,8 @@ class App(ctk.CTk):
 
         # create examine frame
         self.examine_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
-        # self.examine_frame.grid_rowconfigure(0, weight= 1)
-        # self.examine_frame.grid_columnconfigure(0, weight= 1)
         self.table = MyTable(self.examine_frame, master = self)
         self.table.show()
-        # ctk.CTkFrame(self.examine_frame, corner_radius= 10, fg_color="transparent").grid(row= 0, column= 1, padx= (0, 5), pady= 5, sticky= 'nsew')
 
         # create export frame
         self.export_frame = ExportFrame(self)
@@ -227,13 +224,7 @@ class App(ctk.CTk):
                 self.df = thread.df
 
                 # update result in home frame
-                self.filter_tab.auto()
-
-                # pass data to table and configure row color
-                self.table.model.df = self.result.iloc[:, :-1]  # uses iloc to choose data without 'target' column, and this makes a copy(or not?)
-                target_rows = self.result.query('target > 0').index.tolist()
-                self.table.setRowColors(rows= target_rows, clr= "#984B4B",cols= 'all')  # set target row red background
-                self.table.redraw()
+                self.filter_tab.auto()      # table data updated in auto()
 
             else:
                 self.home_frame_src.configure(text_color= ("#CE0000", "#750000"), border_color= "#AD5A5A", fg_color= ("#FFD2D2", "#743A3A"))
@@ -255,6 +246,21 @@ class App(ctk.CTk):
         else:
             self.export_frame.destination_button.configure(state= "normal")
 
+    def update_table_data(self):
+        '''pass data to table and configure row color'''
+
+        self.table.model.df = self.result.iloc[:, :-1]      # uses iloc to choose data without 'target' column, and this makes a copy(or not?)
+
+        # initialize bg color
+        self.table.setRowColors(rows= self.result.index.to_list(), clr= self.table.cellbackgr, cols= 'all')
+        # initialize font color
+        for _ in self.table.toggled_cell:
+            self.table.drawText(*_, self.result.iat[_], align= self.table.align, fgcolor= self.table.textcolor)
+        self.table.toggled_cell = []
+
+        target_rows = self.result.query('target > 0').index.tolist()
+        self.table.setRowColors(rows= target_rows, clr= "#984B4B",cols= 'all')  # set target row red background, this will call self.redraw()
+
 
 class FlipSwitch(ctk.CTkSwitch):
     def __init__(self, *args, **kwargs):
@@ -269,7 +275,7 @@ class FlipSwitch(ctk.CTkSwitch):
 class MyTabView(ctk.CTkTabview):
     def __init__(self, master, main_program, **kwargs):
         super().__init__(master, command= self.switch_tab, **kwargs)
-        self.prog = main_program
+        self.root = main_program
         self.th_hct, self.th_wbc, self.th_round = ctk.DoubleVar(value= 0.9), ctk.DoubleVar(value= 0.3), ctk.DoubleVar(value= 0.7)
         self.th_sharp = ctk.IntVar(value= 14000)
         self.target, self.nontarget= ctk.IntVar(), ctk.IntVar()
@@ -322,20 +328,24 @@ class MyTabView(ctk.CTkTabview):
         ctk.CTkLabel(self.monitor_frame, textvariable= self.nontarget, text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 3, padx= 10, sticky= 'w')
 
     def fetch(self, var):                           # var is the value of scalebar
-        if self.prog.import_flag:
-            self.prog.result = ccv.analysis(self.prog.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get(),
+        if self.root.import_flag:
+            self.root.result = ccv.analysis(self.root.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get(),
                             sharpness_thres= self.th_sharp.get(), diameter_thres= self.diameter_scaler.getValues())
-            y, n = ccv.count_target(self.prog.result)
+            y, n = ccv.count_target(self.root.result)
             self.target.set(y)
             self.nontarget.set(n)
+
+            self.root.update_table_data()
     
     def auto(self):
 
-        if self.prog.import_flag:
-            self.prog.result = ccv.analysis(self.prog.df)
-            y, n = ccv.count_target(self.prog.result)
+        if self.root.import_flag:
+            self.root.result = ccv.analysis(self.root.df)
+            y, n = ccv.count_target(self.root.result)
             self.target.set(y)
             self.nontarget.set(n)
+
+            self.root.update_table_data()
 
     def switch_tab(self):
         if self.get() == "auto":
@@ -402,7 +412,9 @@ class MyTable(Table):
         super().__init__(parent, model, dataframe, width, height, rows, cols, showtoolbar, showstatusbar, editable, enable_menus, **kwargs)
 
         self.master = master
-        self.toggle_color = '#A5A552'
+        self.bind("<Alt-Button-1>",self.handle_left_alt_click)
+        self.bind("<Alt-Button-3>", self.handle_right_alt_click)
+
         self.setTheme('dark')
         options = {
         # 'align': 'w',
@@ -421,10 +433,8 @@ class MyTable(Table):
         'showindex': True     # make header of row is the number of index
         }
         config.apply_options(options, self)
-        self.bind("<Alt-Button-1>",self.handle_left_alt_click)
-        self.bind("<Alt-Button-3>", self.handle_right_alt_click)
+        self.toggle_color = '#A5A552'
         self.toggled_cell = []
-
         self.viewer = None
 
     def redrawVisible(self, event=None, callback=None):
