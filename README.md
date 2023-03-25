@@ -6,8 +6,6 @@ a project assisting senier
 
 use opencv [youtube](https://www.youtube.com/watch?v=xjrykYpaBBM)
 
-or imageJ2 [doc](https://github.com/imagej/pyimagej/blob/master/doc/README.md)
-
 ## github marks
 
 U:新建檔案
@@ -15,21 +13,6 @@ U:新建檔案
 A:加入追蹤
 
 M:與上個commit有差異
-
-## opencv commands
-
-img_gray = cv2.imread('image.jpg', cv2.IMREAD_GRAYSCALE)     #只讀灰階值
-
-cv2.namedWindow('My Image', cv2.WINDOW_NORMAL)               #讓圖片視窗可調整大小
-
-## instance function
-
-initailize:
-
-```python
-def __init__(self):
-    self.var = []
-```
 
 ## image properties
 
@@ -63,31 +46,17 @@ e = 4pi*A/P^2
 hoechst ~ 40-45 pixels
 cellsize = 12^2~25^2
 
-## tkSliderWidget
+## custom tkinter
 
-Implementation of a slider widget using tkinter, multiple slider supported
+Source [link](https://github.com/TomSchimansky/CustomTkinter)
 
-for an example see:
-`main.py`
+Wiki [link](https://github.com/TomSchimansky/CustomTkinter/wiki)
 
-![Slider](http://i.ibb.co/zRYP9Fv/Annotation-2020-02-13-172914.png)
+## flourescent criterions
 
-```python
- 
-import tkinter as tk
-from tkSliderWidget import Slider
+below are in sequence: UV, FITC, PE, APC
 
-root = tk.Tk()
-
-slider = Slider(root, width = 400, height = 60, min_val = -100, max_val = 100, init_lis = [-50,0,75], show_value = True)
-slider.pack()
-
-# optionally add a callback on value change
-slider.setValueChageCallback(lambda vals: print(vals))
-
-root.title("Slider Widget")
-root.mainloop()
-
-print(slider.getValues())
-
-```
+* untransformed CTC: Hoechst+, Epcam+, X, CD45-
+* CTC: Hoechst+, Epcam+(or)Vimentin+, CD45-
+* M-MDSC/PMN-MDSC: Hoechst? Epcam? CD11b+ CD14+
+* t-cell: Hoechst? Epcam? CD25+ CD4+

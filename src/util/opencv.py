@@ -7,7 +7,6 @@ from threading import Thread
 import pandas as pd
 from skimage import measure, morphology
 from PIL import Image
-import time
 
 # preprocess parameters
 BLUR_KERNAL = (5, 5)
@@ -57,9 +56,9 @@ class Import_thread(Thread):                                                    
         if any(x is None for x in [self.img_0, self.img_1, self.img_2, self.img_3]):
             raise IOError(FileNotFoundError, "insufficient required image")
 
-        self.pre_0 = preprocess_full(self.img_0, ELIM_HCT_SIZE)
-        self.pre_1 = preprocess_rare(self.img_1, ELIM_EPCAM_SIZE)
-        self.pre_3 = preprocess_full(self.img_3, ELIM_WBC_SIZE)
+        self.pre_0 = preprocess(self.img_0, ELIM_HCT_SIZE)
+        self.pre_1 = preprocess(self.img_1, ELIM_EPCAM_SIZE)
+        self.pre_3 = preprocess(self.img_3, ELIM_WBC_SIZE)
         if any(x is None for x in [self.pre_0, self.pre_1, self.pre_3]):
             print("Error in preprocessing")
         else: 
@@ -126,7 +125,6 @@ def count_target(dataframe:pd.DataFrame) -> int:
     nontarget_amount = (~dataframe['target']).sum()
     return target_amount, nontarget_amount
 
-
 def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray) -> pd.DataFrame:
     '''find contours from epcam img, calculate properties of each one and store in dataframe, 
 also optional marks on exported image, parameter img should be grayscale\n
@@ -177,7 +175,6 @@ also optional marks on exported image, parameter img should be grayscale\n
     }
     return pd.DataFrame(data)
 
-
 def image_slice(orig_hct: np.ndarray, orig_ep: np.ndarray, orig_wbc: np.ndarray, df: pd.DataFrame, index, pixel_scale:int, canv_len:int)-> tuple:
     '''image slicing for toplevel viewer'''
     UV_COLOR = (0, 92, 255)     # RGB
@@ -213,7 +210,6 @@ def image_slice(orig_hct: np.ndarray, orig_ep: np.ndarray, orig_wbc: np.ndarray,
     cv2.circle(wbc_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
 
     return hct_slice, ep_slice, None, wbc_slice
-
 
 def image_postprocessing(hct_img: np.ndarray, ep_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, result: pd.DataFrame,
                          path: str, mark= False, mask= False, beta = BETA):
@@ -266,123 +262,94 @@ def image_postprocessing(hct_img: np.ndarray, ep_img: np.ndarray, wbc_img: np.nd
         bgra = np.dstack((bg, markmask))
         cv2.imwrite(os.path.join(path, 'mask.png'), bgra)
 
-
 def show(img: np.ndarray, name: str):
 
     cv2.namedWindow(name, cv2.WINDOW_NORMAL)
     cv2.imshow(name, img)
-
 
 def otsu_th(img: np.ndarray, kernal_size: tuple):
     blur = cv2.GaussianBlur(img, kernal_size, 0)
     ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     return ret, th
 
+def preprocess(img: np.ndarray, small_object: int, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
 
-def erode_dilate(img: np.ndarray, kernal_size= 3, iterations= 2):
-    '''kernal size must be odd and >= 3'''
-    kernal = np.ones((kernal_size,kernal_size), np.uint8)
-    _ = cv2.erode(img, kernal, iterations= iterations)
-    _ = cv2.dilate(_, kernal, iterations= iterations)
-    return _
-
-
-def crop(img: np.ndarray):
-    only01 = np.where(img>=1, 255, 0).astype(np.uint8)
+    clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
     block = int(np.floor(img.shape[0]/5))
     radius = int(block*1.5*math.sqrt(2))
     center = int(np.floor(img.shape[0]/2))
-    mask = cv2.circle(np.zeros_like(only01), (center, center), radius, (255, 255, 255), -1)
-    masked = cv2.bitwise_and(only01, mask)
+
+    # Create a meshgrid of pixel coordinates
+    y, x = np.ogrid[:img.shape[0], :img.shape[1]]
+    # Create a boolean mask for pixels within the circle
+    mask = (x - center)**2 + (y - center)**2 <= radius**2
+
+    if process_type(img, mask):
+        split = [np.array_split(_, SPLIT, 1) for _ in np.array_split(img, SPLIT)]       # list comprehension
+
+        for iter in np.ndindex((len(split), len(split[:]))):
+            subimg = split[iter[0]][iter[1]]
+            subimg_clahe = clahe.apply(subimg)
+            ret, subimg_th = otsu_th(subimg_clahe, blur_kernal)
+            labeled = measure.label(subimg_th, connectivity= 2)
+            split[iter[0]][iter[1]] = morphology.remove_small_objects(labeled, min_size= small_object, connectivity= 2)
+        fin = crop(np.block(split), mask)
+
+    else:
+        img_clahe = clahe.apply(img)
+        ret, a = otsu_th(img_clahe, blur_kernal)                                        # use otsu's threshold but use original image for thresholding
+        _, th = cv2.threshold(img, ret, 255, cv2.THRESH_BINARY)
+        labeled = measure.label(th, connectivity= 2)
+        labeled = morphology.remove_small_objects(labeled, min_size= small_object, connectivity= 2)
+        fin = crop(labeled, mask)
+
+    return fin
+
+def process_type(img: np.ndarray, mask: np.ndarray):
+    '''True for 'full', False for 'rare'.'''
+
+    FULL_RARE_THRES = 46
+    # calculate mean of pixels in the circle
+    avg = np.mean(img, where= mask)
+    return avg > FULL_RARE_THRES
+
+def crop(img: np.ndarray, mask: np.ndarray):
+    '''only used in cropping labeled image (by measure.label)'''
+
+    label_to_white = np.where(img>=1, 255, 0).astype(np.uint8)
+    masked = np.where(mask, label_to_white, 0)
     return masked
 
-
-def preprocess_rare(img: np.ndarray, small_object: int, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
-
-    clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
-
-    img_clahe = clahe.apply(img)
-    ret, a = otsu_th(img_clahe, blur_kernal)                                        # use otsu's threshold but use original image for thresholding
-    _, th = cv2.threshold(img, ret, 255, cv2.THRESH_BINARY)
-    labeled = measure.label(th, connectivity= 2)
-    labeled = morphology.remove_small_objects(labeled, min_size= small_object, connectivity= 2, out= labeled)
-    fin = crop(labeled)
-    
-    return fin
-
-
-def preprocess_full(img: np.ndarray, small_object: int, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
-
-    clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
-
-    split = [np.array_split(_, SPLIT, 1) for _ in np.array_split(img, SPLIT)]       # list comprehension
-
-    for iter in np.ndindex((len(split), len(split[:]))):
-        subimg = split[iter[0]][iter[1]]
-        subimg_clahe = clahe.apply(subimg)
-        ret, subimg_th = otsu_th(subimg_clahe, blur_kernal)
-        labeled = measure.label(subimg_th, connectivity= 2)
-        split[iter[0]][iter[1]] = morphology.remove_small_objects(labeled, min_size= small_object, connectivity= 2)
-    fin = crop(np.block(split))
-
-    return fin
-
-
-# def preprocess_rare(img: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):    # old method
-
-#     clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
-
-#     img_clahe = clahe.apply(img)
-#     ret, a = otsu_th(img_clahe, blur_kernal)                                        # use otsu's threshold but use original image for thresholding
-#     _, th = cv2.threshold(img, ret, 255, cv2.THRESH_BINARY)
-#     a = erode_dilate(th)
-#     fin = crop(a)
-    
-#     return fin
-
-
-# def preprocess_full(img: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):    # old method
-
-#     clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
-
-#     split = [np.array_split(_, SPLIT, 1) for _ in np.array_split(img, SPLIT)]       # list comprehension
-
-#     for iter in np.ndindex((len(split), len(split[:]))):
-#         subimg = split[iter[0]][iter[1]]
-#         subimg_clahe = clahe.apply(subimg)
-#         ret, subimg_th = otsu_th(subimg_clahe, blur_kernal)
-#         split[iter[0]][iter[1]] = erode_dilate(subimg_th)
-#     fin = crop(np.block(split))
-
-#     return fin
 
 if __name__ == '__main__':
 
     DATADIRECTORY = "data"
-    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-    os.chdir(root_dir)
+    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     data_dir = os.path.join(os.getcwd(), DATADIRECTORY)
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
+    # if not os.path.exists(data_dir):
+    #     os.makedirs(data_dir)
     img_list = glob.glob(os.path.join(DATADIRECTORY, "*.jpg"))
 
     for i in img_list:
         if '_0.jpg' in i:
-            hct = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+            img_0 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
         elif '_1.jpg' in i:
-            epcam = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+            img_1 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
         elif '_3.jpg' in i:
-            wbc = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
-    
-    pre_0 = preprocess_full(hct, 0, imwrite= False, path= DATADIRECTORY)
-    pre_1 = preprocess_rare(epcam, 1, imwrite= False, path= DATADIRECTORY)
-    pre_3 = preprocess_full(wbc, 3, imwrite= False, path= DATADIRECTORY)
+            img_3 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
 
-    df = img2dataframe(pre_1, pre_0, pre_3)
-    start_time = time.time()
-    api = Cv_api(None)
-    api.analysis(df)
-    end_time = time.time()
-    print('analysis time = ', end_time-start_time)
+
+    pre_0 = preprocess(img_0, ELIM_HCT_SIZE)
+    pre_1 = preprocess(img_1, ELIM_EPCAM_SIZE)
+    pre_3 = preprocess(img_3, ELIM_WBC_SIZE)
+
+    # df = img2dataframe(pre_1, pre_0, pre_3)
+    # result = analysis(df)
+
+    show(pre_0, '0')
+    show(pre_1, '1')
+    show(pre_3, '3')
+    # show(pre_0[3000:3600, 3000:3600], '0_mag')
+    # show(pre_0_t[3000:3600, 3000:3600], '0t_mag')
 
     cv2.waitKey(0)
