@@ -5,7 +5,7 @@ import os
 from PIL import Image, ImageTk
 from tkinter import filedialog
 import pandas as pd
-from util.opencv import Import_thread, Cv_api
+from util.opencv import Import_thread, Cv_api, Preprocess_thread
 import util.opencv as ccv
 from util.tkSliderWidget import Slider
 from pandastable.core import Table, config, RowHeader, IndexHeader, ColumnHeader, ToolBar, statusBar
@@ -26,7 +26,7 @@ class App(ctk.CTk):
 
         self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
         self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
-        self.import_flag = False
+        self.import_flag, self.preprocess_flag = False, False
         self.df, self.result = pd.DataFrame(), pd.DataFrame()
 
         # initializing window position to screen center
@@ -114,7 +114,7 @@ class App(ctk.CTk):
 
         self.home_frame_type_label = ctk.CTkLabel(self.home_frame, text= "Target Type")
         self.home_frame_type_label.grid(row=2, column=0, padx=20, pady=20, sticky= 'e')
-        self.home_frame_type = ctk.CTkOptionMenu(self.home_frame, values= ["CTC", "others"])
+        self.home_frame_type = ctk.CTkOptionMenu(self.home_frame, values= ["None", "CTC"], state= 'disabled', command= self.preprocess)
         self.home_frame_type.grid(row=2, column=1, padx=0, pady=20, sticky= 'w')
 
         # create filter frame
@@ -180,28 +180,37 @@ class App(ctk.CTk):
             import_td = Import_thread(folder)                              # create class inherited from threading, initialize each time when choosing folder
 
             # create progress bar toplevel
-            progwin = ctk.CTkToplevel(self)
-            progwin.title('Importing and preprocessing...')
-            progwin.resizable(0,0)
-            progwin.attributes('-topmost', 'true')
-
-            # progress bar widget
-            progbar = ctk.CTkProgressBar(progwin, mode= "indeterminate")
-            progbar.start()
-            progbar.pack(padx= 20, pady= 10)
-
-            # initializing bar position
-            cord_x = self.winfo_x()+(self.winfo_width()-progwin.winfo_width())/2
-            cord_y = self.winfo_y()+(self.winfo_height()-progwin.winfo_height())/2
-            progwin.geometry(f'+{int(cord_x)}+{int(cord_y)}')               # uses f-string mothod
+            progwin = ToplevelProgressBar(self)
+            progwin.title('Importing')
             
             # connect to imported threading function from opencv.py
             import_td.start()                                               # this will start the run() method in Import_thread
-            # progwin.grab_set()
-            self.thread_monitor(progwin, import_td, progwin.destroy)
-            
+            self.thread_monitor(progwin, import_td, lambda: self.after_import(import_td))
+
             if self.export_frame.destination_switch.get():
                 self.export_dir.set(self.data_dir.get())
+
+    def preprocess(self, event):
+
+        if event == 'None':
+            # clear previous data and update table
+            self.df, self.result = pd.DataFrame(), pd.DataFrame()
+            self.table.__init__(self.examine_frame, master = self)
+            self.table.show()
+
+            # disable widgets as same as preprocess not successful
+            self.export_frame.button.configure(state= 'disabled')
+            self.filter_tab.target.set(0)
+            self.filter_tab.nontarget.set(0)
+        else:
+            pre_td = Preprocess_thread(event, self.img_0, self.img_1, self.img_2, self.img_3)
+
+            progwin = ToplevelProgressBar(self)
+            progwin.title('preprocessing...')
+
+            # connect to imported threading function from opencv.py
+            pre_td.start()
+            self.thread_monitor(progwin, pre_td, lambda: self.after_preprocess(pre_td))
 
     def thread_monitor(self, window, thread, command):
         '''check whether the thread in window is alive, if not, run command'''
@@ -209,28 +218,49 @@ class App(ctk.CTk):
         if thread.is_alive():
             window.after(100, lambda: self.thread_monitor(window, thread, command))
         else:
+            window.destroy()
             command()
 
-            self.import_flag = thread.flag
-            # showing success or not
-            if self.import_flag:
-                self.home_frame_src.configure(text_color= ("#C6A300", "#977C00"), border_color= ThemeManager.theme["CTkEntry"]["border_color"],
-                                              fg_color= ThemeManager.theme["CTkEntry"]["fg_color"])
-                self.export_frame.button.configure(state= 'normal')
+    def after_import(self, thread):
 
-                # pass data after thread closed
-                self.img_0, self.img_1, self.img_2, self.img_3 = thread.img_0, thread.img_1, thread.img_2, thread.img_3
-                self.pre_0, self.pre_1, self.pre_3 = thread.pre_0, thread.pre_1, thread.pre_3
-                self.df = thread.df
+        self.import_flag= thread.flag
+        # showing success or not
+        if self.import_flag:
+            self.home_frame_src.configure(text_color= ("#C6A300", "#977C00"), border_color= ThemeManager.theme["CTkEntry"]["border_color"],
+                                            fg_color= ThemeManager.theme["CTkEntry"]["fg_color"])
+            self.home_frame_type.configure(state= 'normal')
 
-                # update result in home frame
-                self.filter_tab.auto()      # table data updated in auto()
+            # pass data after thread closed
+            self.img_0, self.img_1, self.img_2, self.img_3 = thread.img_0, thread.img_1, thread.img_2, thread.img_3
 
-            else:
-                self.home_frame_src.configure(text_color= ("#CE0000", "#750000"), border_color= "#AD5A5A", fg_color= ("#FFD2D2", "#743A3A"))
-                self.export_frame.button.configure(state= 'disabled')
-                self.filter_tab.target.set(0)
-                self.filter_tab.nontarget.set(0)
+        else:
+            self.home_frame_src.configure(text_color= ("#CE0000", "#750000"), border_color= "#AD5A5A", fg_color= ("#FFD2D2", "#743A3A"))
+            self.home_frame_type.configure(state= 'disabled')
+            self.export_frame.button.configure(state= 'disabled')
+            self.filter_tab.target.set(0)
+            self.filter_tab.nontarget.set(0)
+
+            # shut down preprocess flag as well
+            self.preprocess_flag = self.import_flag
+
+    def after_preprocess(self, thread):
+
+        self.preprocess_flag= thread.flag
+        # showing success or not
+        if self.preprocess_flag:
+            self.export_frame.button.configure(state= 'normal')
+
+            # pass data after thread closed
+            self.pre_0, self.pre_1, self.pre_3 = thread.pre_0, thread.pre_1, thread.pre_3
+            self.df = thread.df
+
+            # update result in home frame
+            self.filter_tab.auto()          # table data updated in auto()
+        
+        else:
+            self.export_frame.button.configure(state= 'disabled')
+            self.filter_tab.target.set(0)
+            self.filter_tab.nontarget.set(0)
 
     def choose_des(self):
         '''Let user select directory where they export data'''
@@ -245,21 +275,6 @@ class App(ctk.CTk):
             self.export_dir.set(self.data_dir.get())
         else:
             self.export_frame.destination_button.configure(state= "normal")
-
-    def update_table_data(self):
-        '''pass data to table and configure row color'''
-
-        self.table.model.df = self.result.iloc[:, :-1]      # uses iloc to choose data without 'target' column, and this makes a copy(or not?)
-
-        # initialize bg color
-        self.table.setRowColors(rows= self.result.index.to_list(), clr= self.table.cellbackgr, cols= 'all')
-        # initialize font color
-        for _ in self.table.toggled_cell:
-            self.table.drawText(*_, self.result.iat[_], align= self.table.align, fgcolor= self.table.textcolor)
-        self.table.toggled_cell = []
-
-        target_rows = self.result.query('target > 0').index.tolist()
-        self.table.setRowColors(rows= target_rows, clr= "#984B4B",cols= 'all')  # set target row red background, this will call self.redraw()
 
 
 class FlipSwitch(ctk.CTkSwitch):
@@ -328,24 +343,24 @@ class MyTabView(ctk.CTkTabview):
         ctk.CTkLabel(self.monitor_frame, textvariable= self.nontarget, text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 3, padx= 10, sticky= 'w')
 
     def fetch(self, var):                           # var is the value of scalebar
-        if self.root.import_flag:
+        if self.root.preprocess_flag:
             self.root.result = ccv.analysis(self.root.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get(),
                             sharpness_thres= self.th_sharp.get(), diameter_thres= self.diameter_scaler.getValues())
             y, n = ccv.count_target(self.root.result)
             self.target.set(y)
             self.nontarget.set(n)
 
-            self.root.update_table_data()
+            self.root.table.update_table_data()
     
     def auto(self):
 
-        if self.root.import_flag:
+        if self.root.preprocess_flag:
             self.root.result = ccv.analysis(self.root.df)
             y, n = ccv.count_target(self.root.result)
             self.target.set(y)
             self.nontarget.set(n)
 
-            self.root.update_table_data()
+            self.root.table.update_table_data()
 
     def switch_tab(self):
         if self.get() == "auto":
@@ -404,6 +419,25 @@ class ExportFrame(ctk.CTkFrame):
                     border_width= ThemeManager.theme["CTkEntry"]["border_width"], corner_radius= ThemeManager.theme["CTkEntry"]["corner_radius"],
                     hover_color= ("gray80", "gray30"), textvariable= master.export_dir, command= master.choose_des, state= 'disabled')
         self.destination_button.grid(row= 1, column= 1, padx= (0, 10), pady= (0, 40), sticky= 'we')
+
+
+class ToplevelProgressBar(ctk.CTkToplevel):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+
+        self.master = master
+        self.resizable(0,0)
+        self.attributes('-topmost', 'true')
+
+        # progress bar widget
+        progbar = ctk.CTkProgressBar(self, mode= "indeterminate")
+        progbar.start()
+        progbar.pack(padx= 20, pady= 10)
+
+        # initializing bar position
+        cord_x = self.master.winfo_x()+(self.master.winfo_width()-self.winfo_width())/2
+        cord_y = self.master.winfo_y()+(self.master.winfo_height()-self.winfo_height())/2
+        self.geometry(f'+{int(cord_x)}+{int(cord_y)}')              # uses f-string mothod
 
 
 class MyTable(Table):
@@ -830,7 +864,7 @@ class MyTable(Table):
         '''open corresponding view of index'''
 
         self.handle_left_click(event)
-        if self.master.import_flag:
+        if self.master.preprocess_flag:
             rowclicked = self.get_row_clicked(event)
             self.open_viewer(rowclicked)
 
@@ -840,6 +874,22 @@ class MyTable(Table):
         else:
             self.viewer.update_id(id)
             # self.viewer.focus()
+
+    def update_table_data(self):
+        '''pass data to table and configure row color,\n
+        use this only for change in result dataframe or adding data when there's none in table'''
+
+        self.model.df = self.master.result.iloc[:, :-1]      # uses iloc to choose data without 'target' column, and this makes a copy(or not?)
+
+        # initialize bg color
+        self.setRowColors(rows= self.master.result.index.to_list(), clr= self.cellbackgr, cols= 'all')
+        # initialize font color
+        for _ in self.toggled_cell:
+            self.drawText(*_, self.master.result.iat[_], align= self.align, fgcolor= self.textcolor)
+        self.toggled_cell = []
+
+        target_rows = self.master.result.query('target > 0').index.tolist()
+        self.setRowColors(rows= target_rows, clr= "#984B4B",cols= 'all')  # set target row red background, this will call self.redraw()
 
     class ToplevelViewer(ctk.CTkToplevel):
         def __init__(self, id, *args, **kwargs):

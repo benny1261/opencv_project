@@ -6,7 +6,6 @@ import numpy as np
 from threading import Thread
 import pandas as pd
 from skimage import measure, morphology
-from PIL import Image
 
 # preprocess parameters
 BLUR_KERNAL = (5, 5)
@@ -15,7 +14,7 @@ TILEGRIDSIZE = 8
 SPLIT = 5
 ELIM_HCT_SIZE = 16
 ELIM_EPCAM_SIZE = 81
-ELIM_WBC_SIZE = 26
+ELIM_WBC_SIZE = 30
 BETA = 0.4
 # analysis parameters
 HCT_AREA = 42
@@ -25,11 +24,9 @@ WBC_THRESHOLD = 0.3                                                             
 SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc
 ROUNDNESS_THRESHOLD = 0.7
 DIAMETER_THRESHOLD = (10, 27)
-# marking color
+# postprocessing parameters
 CTC_MARK = (0,0,255)
 NONCTC_MARK = (18,153,255)
-LOWROUNDNESS_MARK = (221, 160, 221)
-BLUR_MARK = (250, 51, 153)
 MARKFONT = cv2.FONT_HERSHEY_TRIPLEX
 MARKCOORDINATE = (-30, -45)         # (x, y)
 
@@ -38,8 +35,6 @@ class Import_thread(Thread):                                                    
         super().__init__()                                                          # run __init__ of parent class
         self.img_list = glob.glob(os.path.join(path, "*.jpg"))
         self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
-        self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
-        self.df: pd.DataFrame
         self.flag = False
 
     def run(self):                                                                  # overwrites run() method from parent class
@@ -55,14 +50,32 @@ class Import_thread(Thread):                                                    
 
         if any(x is None for x in [self.img_0, self.img_1, self.img_2, self.img_3]):
             raise IOError(FileNotFoundError, "insufficient required image")
+        else:
+            self.flag = True
 
-        self.pre_0 = preprocess(self.img_0, ELIM_HCT_SIZE)
-        self.pre_1 = preprocess(self.img_1, ELIM_EPCAM_SIZE)
-        self.pre_3 = preprocess(self.img_3, ELIM_WBC_SIZE)
-        if any(x is None for x in [self.pre_0, self.pre_1, self.pre_3]):
+
+class Preprocess_thread(Thread):                                                    # define a class that inherits from 'Thread' class
+    def __init__(self, cell_type, *imgs):
+        super().__init__()                                                          # run __init__ of parent class
+        self.img_0, self.img_1, self.img_2, self.img_3 = imgs
+        self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
+        self.df: pd.DataFrame
+        self.flag = False
+        self.cell_type = cell_type
+
+    def run(self):                                                                  # overwrites run() method from parent class
+
+        if self.cell_type == 'CTC':
+            self.pre_0 = preprocess(self.img_0, ELIM_HCT_SIZE)
+            self.pre_1 = preprocess(self.img_1, ELIM_EPCAM_SIZE)
+            self.pre_2 = preprocess(self.img_2, ELIM_EPCAM_SIZE)
+            self.pre_3 = preprocess(self.img_3, ELIM_WBC_SIZE)
+
+        if any(x is None for x in [self.pre_0, self.pre_1, self.pre_2, self.pre_3]):
             print("Error in preprocessing")
-        else: 
-            self.df = img2dataframe(self.pre_1, self.pre_0, self.pre_3)
+            return
+        else:
+            self.df = img2dataframe(self.pre_1, self.pre_0, self.pre_3)     # need to pass in cell type as well
             self.flag = True
 
 
@@ -72,7 +85,7 @@ class Cv_api:
         self.busy_flag = False
 
     def export_td(self):                                                            # needs to be able to thread repeatedly
-        if self.master.import_flag:
+        if self.master.preprocess_flag:
             if not self.busy_flag:                                                  # block creating new thread before previous one terminates
                 self.busy_flag = True
                 # establish export thread
@@ -311,6 +324,7 @@ def process_type(img: np.ndarray, mask: np.ndarray):
     FULL_RARE_THRES = 46
     # calculate mean of pixels in the circle
     avg = np.mean(img, where= mask)
+    print(avg > FULL_RARE_THRES)
     return avg > FULL_RARE_THRES
 
 def crop(img: np.ndarray, mask: np.ndarray):
@@ -335,12 +349,15 @@ if __name__ == '__main__':
             img_0 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
         elif '_1.jpg' in i:
             img_1 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+        elif '_2.jpg' in i:
+            img_2 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
         elif '_3.jpg' in i:
             img_3 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
 
 
     pre_0 = preprocess(img_0, ELIM_HCT_SIZE)
     pre_1 = preprocess(img_1, ELIM_EPCAM_SIZE)
+    pre_2 = preprocess(img_2, ELIM_EPCAM_SIZE)
     pre_3 = preprocess(img_3, ELIM_WBC_SIZE)
 
     # df = img2dataframe(pre_1, pre_0, pre_3)
@@ -348,6 +365,7 @@ if __name__ == '__main__':
 
     show(pre_0, '0')
     show(pre_1, '1')
+    show(pre_2, '2')
     show(pre_3, '3')
     # show(pre_0[3000:3600, 3000:3600], '0_mag')
     # show(pre_0_t[3000:3600, 3000:3600], '0t_mag')
