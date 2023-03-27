@@ -16,6 +16,10 @@ ELIM_HCT_SIZE = 16
 ELIM_EPCAM_SIZE = 81
 ELIM_WBC_SIZE = 30
 BETA = 0.4
+PROTOCOL_PRE = {'CTC':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, None, ELIM_WBC_SIZE),
+                'CTC(vimentin)':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE)}
+PROTOCOL_DF = {'CTC': (False, True, None, False),
+               'CTC(vimentin)': (False, True, True, False)}
 # analysis parameters
 HCT_AREA = 42
 WBC_AREA = 60
@@ -25,8 +29,8 @@ SHARPNESS_THRESHOLD = 14000                                                     
 ROUNDNESS_THRESHOLD = 0.7
 DIAMETER_THRESHOLD = (10, 27)
 # postprocessing parameters
-CTC_MARK = (0,0,255)
-NONCTC_MARK = (18,153,255)
+TARGET_MARK = (0,0,255)
+NONTARGET_MARK = (18,153,255)
 MARKFONT = cv2.FONT_HERSHEY_TRIPLEX
 MARKCOORDINATE = (-30, -45)         # (x, y)
 
@@ -34,48 +38,47 @@ class Import_thread(Thread):                                                    
     def __init__(self, path: str):
         super().__init__()                                                          # run __init__ of parent class
         self.img_list = glob.glob(os.path.join(path, "*.jpg"))
-        self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
+        self.imgs = (None, None, None, None)
         self.flag = False
 
     def run(self):                                                                  # overwrites run() method from parent class
+        temp = [None, None, None, None]
         for i in self.img_list:
             if '_0.jpg' in i:
-                self.img_0 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+                temp[0] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
             elif '_1.jpg' in i:
-                self.img_1 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+                temp[1] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
             elif '_2.jpg' in i:
-                self.img_2 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+                temp[2] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
             elif '_3.jpg' in i:
-                self.img_3 = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+                temp[3] = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
 
-        if any(x is None for x in [self.img_0, self.img_1, self.img_2, self.img_3]):
+        if any(x is None for x in temp):
             raise IOError(FileNotFoundError, "insufficient required image")
         else:
+            self.imgs = tuple(temp)
             self.flag = True
 
 
 class Preprocess_thread(Thread):                                                    # define a class that inherits from 'Thread' class
     def __init__(self, cell_type, *imgs):
         super().__init__()                                                          # run __init__ of parent class
-        self.img_0, self.img_1, self.img_2, self.img_3 = imgs
-        self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
+        self.imgs = imgs
+        self.pres = (None, None, None, None)
         self.df: pd.DataFrame
         self.flag = False
         self.cell_type = cell_type
 
-    def run(self):                                                                  # overwrites run() method from parent class
+    def run(self):                                                          # overwrites run() method from parent class
 
-        if self.cell_type == 'CTC':
-            self.pre_0 = preprocess(self.img_0, ELIM_HCT_SIZE)
-            self.pre_1 = preprocess(self.img_1, ELIM_EPCAM_SIZE)
-            self.pre_2 = preprocess(self.img_2, ELIM_EPCAM_SIZE)
-            self.pre_3 = preprocess(self.img_3, ELIM_WBC_SIZE)
-
-        if any(x is None for x in [self.pre_0, self.pre_1, self.pre_2, self.pre_3]):
+        temp = preprocess(self.cell_type, *self.imgs)
+        # exclude elements where it is None in protocal
+        if any(ai is None and bi is not None for ai, bi in zip(temp, PROTOCOL_PRE.values())):
             print("Error in preprocessing")
             return
         else:
-            self.df = img2dataframe(self.pre_1, self.pre_0, self.pre_3)     # need to pass in cell type as well
+            self.pres = temp
+            self.df = img2dataframe(self.cell_type, *self.pres)
             self.flag = True
 
 
@@ -95,15 +98,15 @@ class Cv_api:
     def export(self):
 
         if self.master.export_frame.binary0_switch.get():
-            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary0.jpg"), self.master.pre_0)
+            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary0.jpg"), self.master.pres[0])
         if self.master.export_frame.binary1_switch.get():
-            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary1.jpg"), self.master.pre_1)
+            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary1.jpg"), self.master.pres[1])
         if self.master.export_frame.binary3_switch.get():
-            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary3.jpg"), self.master.pre_3)
+            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary3.jpg"), self.master.pres[3])
 
         if self.master.home_frame_type.get() == 'CTC':
 
-            image_postprocessing(self.master.pre_0, self.master.pre_1, self.master.pre_3,
+            image_postprocessing(self.master.pres[0], self.master.pres[1], self.master.pres[3],
             self.master.df, self.master.result, path= self.master.export_dir.get(),
             mark= self.master.export_frame.mark_switch.get(),
             mask= self.master.export_frame.mask_switch.get(), beta= BETA)
@@ -138,11 +141,11 @@ def count_target(dataframe:pd.DataFrame) -> int:
     nontarget_amount = (~dataframe['target']).sum()
     return target_amount, nontarget_amount
 
-def img2dataframe(ep_img: np.ndarray, hct_img: np.ndarray, wbc_img: np.ndarray) -> pd.DataFrame:
-    '''find contours from epcam img, calculate properties of each one and store in dataframe, 
-also optional marks on exported image, parameter img should be grayscale\n
-@ret pandas dataframe'''
-    labeled = measure.label(ep_img, connectivity= 2)
+def img2dataframe(cell_type: str, *pres: np.ndarray) -> pd.DataFrame:
+    '''find contours from epcam img, calculate properties of each one and store in dataframe,\n
+    also optional marks on exported image, parameter img should be grayscale'''
+
+    labeled = measure.label(pres[1], connectivity= 2)
     properties = measure.regionprops(labeled)
     ROI = 60
     center = []
@@ -162,14 +165,14 @@ also optional marks on exported image, parameter img should be grayscale\n
         max_diameter.append(prop.feret_diameter_max)
         roi.append(prop.slice)
 
-        fuzzyroi = wbc_img[cy-int(ROI/2):cy+int(ROI/2), cx-int(ROI/2):cx+int(ROI/2)]        # check if wbc too fuzzy
+        fuzzyroi = pres[3][cy-int(ROI/2):cy+int(ROI/2), cx-int(ROI/2):cx+int(ROI/2)]    # check if wbc too fuzzy
         howblur = cv2.Laplacian(fuzzyroi, cv2.CV_64F).var()
         wbc_sharpness.append(howblur)
 
         # detection of intersection in ROI
         eproi = prop.image
-        hctroi = hct_img[prop.slice]
-        wbcroi = wbc_img[prop.slice]
+        hctroi = pres[0][prop.slice]
+        wbcroi = pres[3][prop.slice]
 
         intersection_01 = np.logical_and(eproi, hctroi)
         intersection_13 = np.logical_and(eproi, wbcroi)
@@ -188,7 +191,7 @@ also optional marks on exported image, parameter img should be grayscale\n
     }
     return pd.DataFrame(data)
 
-def image_slice(orig_hct: np.ndarray, orig_ep: np.ndarray, orig_wbc: np.ndarray, df: pd.DataFrame, index, pixel_scale:int, canv_len:int)-> tuple:
+def image_slice(df: pd.DataFrame, index, pixel_scale:int, canv_len:int, *imgs: np.ndarray)-> tuple:
     '''image slicing for toplevel viewer'''
     UV_COLOR = (0, 92, 255)     # RGB
     FITC_COLOR = (45, 255, 0)   # RGB
@@ -203,26 +206,26 @@ def image_slice(orig_hct: np.ndarray, orig_ep: np.ndarray, orig_wbc: np.ndarray,
     center = df.at[index, 'center']         # (x, y)
 
     # slicing
-    hct_slice = orig_hct[center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
-    ep_slice = orig_ep[center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
-    wbc_slice = orig_wbc[center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
+    uv_slice = imgs[0][center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
+    fitc_slice = imgs[1][center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
+    apc_slice = imgs[3][center[1]-half_img:center[1]+half_img, center[0]-half_img:center[0]+half_img].copy()
 
     # scale sliced image back to canv_length
-    hct_slice = cv2.resize(hct_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
-    ep_slice = cv2.resize(ep_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
-    wbc_slice = cv2.resize(wbc_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
+    uv_slice = cv2.resize(uv_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
+    fitc_slice = cv2.resize(fitc_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
+    apc_slice = cv2.resize(apc_slice, (canv_len, canv_len), cv2.INTER_CUBIC)
 
     # normalize 255 to 1 then int(norm*COLOR), have to devide first to prevent uint8 overflow
-    hct_slice = np.dstack((hct_slice/255*UV_COLOR[0], hct_slice/255*UV_COLOR[1], hct_slice/255*UV_COLOR[2])).astype(np.uint8)
-    ep_slice = np.dstack((ep_slice/255*FITC_COLOR[0], ep_slice/255*FITC_COLOR[1], ep_slice/255*FITC_COLOR[2])).astype(np.uint8)
-    wbc_slice = np.dstack((wbc_slice/255*PE_COLOR[0], wbc_slice/255*PE_COLOR[1], wbc_slice/255*PE_COLOR[2])).astype(np.uint8)
+    uv_slice = np.dstack((uv_slice/255*UV_COLOR[0], uv_slice/255*UV_COLOR[1], uv_slice/255*UV_COLOR[2])).astype(np.uint8)
+    fitc_slice = np.dstack((fitc_slice/255*FITC_COLOR[0], fitc_slice/255*FITC_COLOR[1], fitc_slice/255*FITC_COLOR[2])).astype(np.uint8)
+    apc_slice = np.dstack((apc_slice/255*PE_COLOR[0], apc_slice/255*PE_COLOR[1], apc_slice/255*PE_COLOR[2])).astype(np.uint8)
 
     # add circle
-    cv2.circle(hct_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
-    cv2.circle(ep_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
-    cv2.circle(wbc_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
+    cv2.circle(uv_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
+    cv2.circle(fitc_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
+    cv2.circle(apc_slice, center= (half_canv, half_canv), radius= RADIUS*pixel_scale, color= CIRCLE_COLOR, thickness= THICKNESS)
 
-    return hct_slice, ep_slice, None, wbc_slice
+    return uv_slice, fitc_slice, None, apc_slice
 
 def image_postprocessing(hct_img: np.ndarray, ep_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, result: pd.DataFrame,
                          path: str, mark= False, mask= False, beta = BETA):
@@ -250,9 +253,9 @@ def image_postprocessing(hct_img: np.ndarray, ep_img: np.ndarray, wbc_img: np.nd
         center = df['center'][_]
         e = df['roundness'][_]
         if result['target'][_]:
-            color = CTC_MARK
+            color = TARGET_MARK
         else:
-            color = NONCTC_MARK
+            color = NONTARGET_MARK
 
         if mark:
             cv2.circle(final, center, 30, color, 2)
@@ -285,38 +288,46 @@ def otsu_th(img: np.ndarray, kernal_size: tuple):
     ret, th = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     return ret, th
 
-def preprocess(img: np.ndarray, small_object: int, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL):
+def preprocess(cell_type: str, *imgs: np.ndarray, clipLimit= CLIP_LIMIT, tileGridSize= TILEGRIDSIZE, blur_kernal= BLUR_KERNAL)-> tuple:
+    '''pass in image in tuple ex: (img_0, img_1...)'''
 
     clahe = cv2.createCLAHE(clipLimit= clipLimit, tileGridSize= (tileGridSize, tileGridSize))
-    block = int(np.floor(img.shape[0]/5))
+    block = int(np.floor(imgs[0].shape[0]/5))
     radius = int(block*1.5*math.sqrt(2))
-    center = int(np.floor(img.shape[0]/2))
+    center = int(np.floor(imgs[0].shape[0]/2))
 
     # Create a meshgrid of pixel coordinates
-    y, x = np.ogrid[:img.shape[0], :img.shape[1]]
+    y, x = np.ogrid[:imgs[0].shape[0], :imgs[0].shape[1]]
     # Create a boolean mask for pixels within the circle
     mask = (x - center)**2 + (y - center)**2 <= radius**2
+    pres = []
 
-    if process_type(img, mask):
-        split = [np.array_split(_, SPLIT, 1) for _ in np.array_split(img, SPLIT)]       # list comprehension
+    for _ in range(len(imgs)):
+        if PROTOCOL_PRE[cell_type][_] == None:
+            fin = None
 
-        for iter in np.ndindex((len(split), len(split[:]))):
-            subimg = split[iter[0]][iter[1]]
-            subimg_clahe = clahe.apply(subimg)
-            ret, subimg_th = otsu_th(subimg_clahe, blur_kernal)
-            labeled = measure.label(subimg_th, connectivity= 2)
-            split[iter[0]][iter[1]] = morphology.remove_small_objects(labeled, min_size= small_object, connectivity= 2)
-        fin = crop(np.block(split), mask)
+        elif process_type(imgs[_], mask):
+            split = [np.array_split(i, SPLIT, 1) for i in np.array_split(imgs[_], SPLIT)]       # list comprehension
 
-    else:
-        img_clahe = clahe.apply(img)
-        ret, a = otsu_th(img_clahe, blur_kernal)                                        # use otsu's threshold but use original image for thresholding
-        _, th = cv2.threshold(img, ret, 255, cv2.THRESH_BINARY)
-        labeled = measure.label(th, connectivity= 2)
-        labeled = morphology.remove_small_objects(labeled, min_size= small_object, connectivity= 2)
-        fin = crop(labeled, mask)
+            for iter in np.ndindex((len(split), len(split[:]))):
+                subimg = split[iter[0]][iter[1]]
+                subimg_clahe = clahe.apply(subimg)
+                ret, subimg_th = otsu_th(subimg_clahe, blur_kernal)
+                labeled = measure.label(subimg_th, connectivity= 2)
+                split[iter[0]][iter[1]] = morphology.remove_small_objects(labeled, min_size= PROTOCOL_PRE[cell_type][_], connectivity= 2)
+            fin = crop(np.block(split), mask)
 
-    return fin
+        else:
+            img_clahe = clahe.apply(imgs[_])
+            ret, a = otsu_th(img_clahe, blur_kernal)                                        # use otsu's threshold but use original image for thresholding
+            b, th = cv2.threshold(imgs[_], ret, 255, cv2.THRESH_BINARY)
+            labeled = measure.label(th, connectivity= 2)
+            labeled = morphology.remove_small_objects(labeled, min_size= PROTOCOL_PRE[cell_type][_], connectivity= 2)
+            fin = crop(labeled, mask)
+        
+        pres.append(fin)
+
+    return tuple(pres)
 
 def process_type(img: np.ndarray, mask: np.ndarray):
     '''True for 'full', False for 'rare'.'''
@@ -324,7 +335,6 @@ def process_type(img: np.ndarray, mask: np.ndarray):
     FULL_RARE_THRES = 46
     # calculate mean of pixels in the circle
     avg = np.mean(img, where= mask)
-    print(avg > FULL_RARE_THRES)
     return avg > FULL_RARE_THRES
 
 def crop(img: np.ndarray, mask: np.ndarray):

@@ -24,8 +24,8 @@ class App(ctk.CTk):
         self.data_dir = ctk.StringVar()
         self.export_dir = ctk.StringVar()
 
-        self.img_0, self.img_1, self.img_2, self.img_3 = None, None, None, None
-        self.pre_0, self.pre_1, self.pre_2, self.pre_3 = None, None, None, None
+        self.imgs = (None, None, None, None)
+        self.pres = (None, None, None, None)
         self.import_flag, self.preprocess_flag = False, False
         self.df, self.result = pd.DataFrame(), pd.DataFrame()
 
@@ -203,7 +203,7 @@ class App(ctk.CTk):
             self.filter_tab.target.set(0)
             self.filter_tab.nontarget.set(0)
         else:
-            pre_td = Preprocess_thread(event, self.img_0, self.img_1, self.img_2, self.img_3)
+            pre_td = Preprocess_thread(event, *self.imgs)
 
             progwin = ToplevelProgressBar(self)
             progwin.title('preprocessing...')
@@ -231,7 +231,7 @@ class App(ctk.CTk):
             self.home_frame_type.configure(state= 'normal')
 
             # pass data after thread closed
-            self.img_0, self.img_1, self.img_2, self.img_3 = thread.img_0, thread.img_1, thread.img_2, thread.img_3
+            self.imgs = thread.imgs
 
         else:
             self.home_frame_src.configure(text_color= ("#CE0000", "#750000"), border_color= "#AD5A5A", fg_color= ("#FFD2D2", "#743A3A"))
@@ -251,7 +251,7 @@ class App(ctk.CTk):
             self.export_frame.button.configure(state= 'normal')
 
             # pass data after thread closed
-            self.pre_0, self.pre_1, self.pre_3 = thread.pre_0, thread.pre_1, thread.pre_3
+            self.pres = thread.pres
             self.df = thread.df
 
             # update result in home frame
@@ -909,8 +909,7 @@ class MyTable(Table):
             self.channel_switch.grid(row= 0, column= 0, sticky= 'we')
 
         def update_id(self, id):
-            self.all_slices = ccv.image_slice(self.master.img_0, self.master.img_1, self.master.img_3,
-                                            self.master.df, id, self.pixel_scale, self.canvas_length)
+            self.all_slices = ccv.image_slice(self.master.df, id, self.pixel_scale, self.canvas_length, *self.master.imgs)
             self.zd = ZoomDrag(self, self.all_slices[self.channel_index], width= self.canvas_length, height= self.canvas_length)
             self.zd.grid(row= 1, column= 0)
         
