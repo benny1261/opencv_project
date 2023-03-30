@@ -5,13 +5,14 @@ import os
 from PIL import Image, ImageTk
 from tkinter import filedialog
 import pandas as pd
-from util.opencv import Import_thread, Cv_api, Preprocess_thread
+from util.opencv import Import_thread, Cv_api, Preprocess_thread, PROTOCOL_THRES, PROTOCOL_NAME, ROUNDNESS_THRESHOLD, SHARPNESS_THRESHOLD, DIAMETER_THRESHOLD
 import util.opencv as ccv
 from util.tkSliderWidget import Slider
 from pandastable.core import Table, config, RowHeader, IndexHeader, ColumnHeader, ToolBar, statusBar
 from pandastable.dialogs import applyStyle, AutoScrollbar
 from pandastable.util import check_multiindex
 from pandastable.headers import createSubMenu
+from pandastable.data import TableModel
 
 class App(ctk.CTk):
     def __init__(self):
@@ -112,9 +113,11 @@ class App(ctk.CTk):
                             hover_color= ("gray80", "gray30"), textvariable= self.data_dir, command= self.choose_filefolder)
         self.home_frame_src.grid(row=1, column=1, padx=(0, 20), pady=20, sticky= 'we')
 
+        type_list = list(PROTOCOL_NAME.keys())
+        type_list.insert(0,'None')
         self.home_frame_type_label = ctk.CTkLabel(self.home_frame, text= "Target Type")
         self.home_frame_type_label.grid(row=2, column=0, padx=20, pady=20, sticky= 'e')
-        self.home_frame_type = ctk.CTkOptionMenu(self.home_frame, values= ["None", "CTC"], state= 'disabled', command= self.preprocess)
+        self.home_frame_type = ctk.CTkOptionMenu(self.home_frame, values= type_list, state= 'disabled', command= self.change_type)
         self.home_frame_type.grid(row=2, column=1, padx=0, pady=20, sticky= 'w')
 
         # create filter frame
@@ -190,13 +193,17 @@ class App(ctk.CTk):
             if self.export_frame.destination_switch.get():
                 self.export_dir.set(self.data_dir.get())
 
-    def preprocess(self, event):
+    def change_type(self, event):
+        '''preprocess + update widgets'''
 
+        self.filter_tab.on_update_types(event)
         if event == 'None':
             # clear previous data and update table
             self.df, self.result = pd.DataFrame(), pd.DataFrame()
-            self.table.__init__(self.examine_frame, master = self)
-            self.table.show()
+            self.table.storeCurrent()
+            self.table.updateModel(TableModel(rows=20,columns=5))
+            # self.table.redrawVisible()
+            self.table.redraw()
 
             # disable widgets as same as preprocess not successful
             self.export_frame.button.configure(state= 'disabled')
@@ -291,71 +298,111 @@ class MyTabView(ctk.CTkTabview):
     def __init__(self, master, main_program, **kwargs):
         super().__init__(master, command= self.switch_tab, **kwargs)
         self.root = main_program
-        self.th_hct, self.th_wbc, self.th_round = ctk.DoubleVar(value= 0.9), ctk.DoubleVar(value= 0.3), ctk.DoubleVar(value= 0.7)
-        self.th_sharp = ctk.IntVar(value= 14000)
+        self.th_scaler = {}
+        self.th_var = [ctk.DoubleVar(), ctk.DoubleVar(), ctk.DoubleVar(), ctk.DoubleVar()]
+        self.th_round = ctk.DoubleVar(value= ROUNDNESS_THRESHOLD)
+        self.th_sharp = ctk.IntVar(value= SHARPNESS_THRESHOLD)
         self.target, self.nontarget= ctk.IntVar(), ctk.IntVar()
+        self.FIXED_NUM = 3
+        self.FIXED_MANUAL = self.FIXED_NUM*2-1
 
         self.add('auto')
         self.add('manual')
-        self.tab("auto").grid_rowconfigure(tuple(range(5)), weight= 1)
+        self.tab("auto").grid_rowconfigure(tuple(range(self.FIXED_NUM)), weight= 1)
         self.tab("auto").grid_columnconfigure(0, weight= 1)
         self.tab("manual").grid_columnconfigure(1, weight= 1)
-        self.tab("manual").grid_rowconfigure(9, weight= 1)
+        self.tab("manual").grid_rowconfigure(self.FIXED_MANUAL, weight= 1)                      # need to be moved downwards if add more scalers
 
-        ctk.CTkLabel(self.tab("auto"), text= 'hoechst threshold: 0.9', anchor= 'w').grid(row= 0, column= 0, sticky= 'we')
-        ctk.CTkLabel(self.tab("auto"), text= 'wbc threshold: 0.3', anchor= 'w').grid(row= 1, column= 0, sticky= 'we')
-        ctk.CTkLabel(self.tab("auto"), text= 'roundness threshold: 0.7', anchor= 'w').grid(row= 2, column= 0, sticky= 'we')
-        ctk.CTkLabel(self.tab("auto"), text= 'sharpness threshold: 14000', anchor= 'w').grid(row= 3, column= 0, sticky= 'we')
-        ctk.CTkLabel(self.tab("auto"), text= 'diameter threshold: 10~27', anchor= 'w').grid(row= 4, column= 0, sticky= 'we')
+        ctk.CTkLabel(self.tab("auto"), text= f'roundness threshold: {ROUNDNESS_THRESHOLD}', anchor= 'w').grid(row= 0, column= 0, sticky= 'we')
+        ctk.CTkLabel(self.tab("auto"), text= f'sharpness threshold: {SHARPNESS_THRESHOLD}', anchor= 'w').grid(row= 1, column= 0, sticky= 'we')
+        ctk.CTkLabel(self.tab("auto"), text= f'diameter threshold: {DIAMETER_THRESHOLD}', anchor= 'w').grid(row= 2, column= 0, sticky= 'we')
         ctk.CTkLabel(self.tab("auto"), text= 'target:', text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 1)
         ctk.CTkLabel(self.tab("auto"), textvariable= self.target, text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 2, padx= 10)
         ctk.CTkLabel(self.tab("auto"), text= 'nontarget:', text_color= ("#C6A300", "#977C00")).grid(row= 1, column= 1)
         ctk.CTkLabel(self.tab("auto"), textvariable= self.nontarget, text_color= ("#C6A300", "#977C00")).grid(row= 1, column= 2)
 
-        ctk.CTkLabel(self.tab("manual"), text= 'hct').grid(row= 0, column= 0, sticky= 'w')
-        self.hct_scaler = ctk.CTkSlider(self.tab("manual"), from_= 0, to= 1, command= self.fetch, variable= self.th_hct)
-        self.hct_scaler.grid(row= 0, column= 1, sticky= 'we')
-        self.hct_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_hct).grid(row= 1, column= 1, sticky= 'we')
-        ctk.CTkLabel(self.tab("manual"), text= 'wbc').grid(row= 2, column= 0, sticky= 'w')
-        self.wbc_scaler = ctk.CTkSlider(self.tab("manual"), from_= 0, to= 1, command= self.fetch, variable= self.th_wbc)
-        self.wbc_scaler.grid(row= 2, column= 1, sticky= 'we')
-        self.wbc_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_wbc).grid(row= 3, column= 1, sticky= 'we')
-        ctk.CTkLabel(self.tab("manual"), text= 'roundness').grid(row= 4, column= 0, sticky= 'w')
+        ctk.CTkLabel(self.tab("manual"), text= 'roundness').grid(row= 0, column= 0, sticky= 'w')
         self.roundness_scaler = ctk.CTkSlider(self.tab("manual"), from_= 0, to= 1, command= self.fetch, variable= self.th_round)
-        self.roundness_scaler.grid(row= 4, column= 1, sticky= 'we')
-        self.roundness_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_round).grid(row= 5, column= 1, sticky= 'we')
-        ctk.CTkLabel(self.tab("manual"), text= 'sharpness').grid(row= 6, column= 0, sticky= 'w')
+        self.roundness_scaler.grid(row= 0, column= 1, sticky= 'we')
+        self.roundness_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_round).grid(row= 1, column= 1, sticky= 'we')
+        ctk.CTkLabel(self.tab("manual"), text= 'sharpness').grid(row= 2, column= 0, sticky= 'w')
         self.sharpness_scaler = ctk.CTkSlider(self.tab("manual"), from_= 6000, to= 20000, command= self.fetch, variable= self.th_sharp)
-        self.sharpness_scaler.grid(row= 6, column= 1, sticky= 'we')
-        self.sharpness_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_sharp).grid(row= 7, column= 1, sticky= 'we')
-        ctk.CTkLabel(self.tab("manual"), text= 'diameter').grid(row= 8, column= 0, sticky= 'w')
-        self.diameter_scaler = Slider(self.tab("manual"), width= 600, height= 40, min_val= 0, max_val= 50, init_lis=[10, 27], show_value= True)
+        self.sharpness_scaler.grid(row= 2, column= 1, sticky= 'we')
+        self.sharpness_number = ctk.CTkLabel(self.tab("manual"), textvariable= self.th_sharp).grid(row= 3, column= 1, sticky= 'we')
+        ctk.CTkLabel(self.tab("manual"), text= 'diameter').grid(row= 4, column= 0, sticky= 'w')
+        self.diameter_scaler = Slider(self.tab("manual"), width= 500, height= 40, min_val= 0, max_val= 60,
+                                      init_lis=[DIAMETER_THRESHOLD[0],DIAMETER_THRESHOLD[1]], show_value= True)
         self.diameter_scaler.setValueChageCallback(lambda vals: self.fetch(vals))
-        self.diameter_scaler.grid(row= 8, column= 1, sticky= 'we')
+        self.diameter_scaler.grid(row= 4, column= 1, sticky= 'we')
 
         self.monitor_frame = ctk.CTkFrame(self.tab("manual"), fg_color= 'transparent')
         self.monitor_frame.grid_rowconfigure(0, weight= 1)
         self.monitor_frame.grid_columnconfigure(tuple(range(4)), weight= 1)
-        self.monitor_frame.grid(row= 9, columnspan= 2, sticky= 'nsew')
+        self.monitor_frame.grid(row= self.FIXED_MANUAL, columnspan= 2, sticky= 'nsew')          # need to be moved downwards if add more scalers
         ctk.CTkLabel(self.monitor_frame, text= 'target:', text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 0, sticky= 'e')
         ctk.CTkLabel(self.monitor_frame, textvariable= self.target, text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 1, padx= 10, sticky= 'w')
         ctk.CTkLabel(self.monitor_frame, text= 'nontarget:', text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 2, sticky= 'e')
         ctk.CTkLabel(self.monitor_frame, textvariable= self.nontarget, text_color= ("#C6A300", "#977C00")).grid(row= 0, column= 3, padx= 10, sticky= 'w')
 
+    def on_update_types(self, cell_type):
+
+        if cell_type == 'None':
+            dynamic_rows = 0
+        else:
+            dynamic_rows = len([x for x in PROTOCOL_THRES[cell_type] if x is not None])
+
+        current_rows_a = self.tab("auto").grid_size()[1]
+        current_rows_m = self.tab("manual").grid_size()[1]
+
+        # kill all widgets in dynamic rows
+        for row_indexes in range(self.FIXED_NUM, current_rows_a):
+            for widget in self.tab("auto").grid_slaves(row=row_indexes):
+                widget.destroy()
+                self.tab("auto").grid_rowconfigure(row_indexes, weight= 0)
+            
+        for row_indexes in range(self.FIXED_MANUAL, current_rows_m):
+            for widget in self.tab("manual").grid_slaves(row=row_indexes):
+                if row_indexes == current_rows_m - 1:                       # monitor frame
+                    widget.grid_forget()            
+                else:
+                    widget.destroy()
+                self.tab("manual").grid_rowconfigure(row_indexes, weight= 0)
+
+        self.tab("auto").grid_rowconfigure(tuple(range(self.FIXED_NUM + dynamic_rows)), weight= 1)
+        self.tab("manual").grid_rowconfigure(self.FIXED_MANUAL+dynamic_rows*2, weight= 1)
+        self.monitor_frame.grid(row= self.FIXED_MANUAL+dynamic_rows*2, columnspan= 2, sticky= 'nsew')
+        if cell_type != 'None':
+            # rebuild dynamic rows
+            count = 0
+            for i in range(4):
+                if PROTOCOL_THRES[cell_type][i] is not None:            # i is index of channel
+                    label = ctk.CTkLabel(self.tab("auto"), text= PROTOCOL_NAME[cell_type][i]+' threshold: '+str(PROTOCOL_THRES[cell_type][i]), anchor= 'w')
+                    label.grid(row= self.FIXED_NUM+count, column= 0, sticky= 'we')
+
+                    self.th_var[i].set(PROTOCOL_THRES[cell_type][i])
+                    ctk.CTkLabel(self.tab("manual"), text= PROTOCOL_NAME[cell_type][i]).grid(row= self.FIXED_MANUAL+ count*2, column= 0, sticky= 'w')
+                    self.th_scaler[i] = ctk.CTkSlider(self.tab("manual"), from_= 0, to= 1, command= self.fetch, variable= self.th_var[i])
+                    self.th_scaler[i].grid(row= self.FIXED_MANUAL+ count*2, column= 1, sticky= 'we')
+                    ctk.CTkLabel(self.tab("manual"), textvariable= self.th_var[i]).grid(row= self.FIXED_MANUAL+ count*2+ 1, column= 1, sticky= 'we')
+                    count+=1
+
     def fetch(self, var):                           # var is the value of scalebar
         if self.root.preprocess_flag:
-            self.root.result = ccv.analysis(self.root.df, hct_thres= self.th_hct.get(), wbc_thres= self.th_wbc.get(), roundness_thres= self.th_round.get(),
-                            sharpness_thres= self.th_sharp.get(), diameter_thres= self.diameter_scaler.getValues())
+            cell_type = self.root.home_frame_type.get()
+            inter_thres = (self.th_var[0].get(), self.th_var[1].get(), self.th_var[2].get(), self.th_var[3].get())
+            self.root.result = ccv.analysis(cell_type, self.root.df, inter_thres, roundness_thres= self.th_round.get(),
+                                            sharpness_thres= self.th_sharp.get(), diameter_thres= self.diameter_scaler.getValues())
             y, n = ccv.count_target(self.root.result)
             self.target.set(y)
             self.nontarget.set(n)
 
             self.root.table.update_table_data()
-    
+
     def auto(self):
 
         if self.root.preprocess_flag:
-            self.root.result = ccv.analysis(self.root.df)
+            cell_type = self.root.home_frame_type.get()
+            self.root.result = ccv.analysis(cell_type, self.root.df, PROTOCOL_THRES[cell_type])
             y, n = ccv.count_target(self.root.result)
             self.target.set(y)
             self.nontarget.set(n)
@@ -877,10 +924,10 @@ class MyTable(Table):
 
     def update_table_data(self):
         '''pass data to table and configure row color,\n
-        use this only for change in result dataframe or adding data when there's none in table'''
+        use this only for change in result dataframe or adding data first time'''
 
         self.model.df = self.master.result.iloc[:, :-1]      # uses iloc to choose data without 'target' column, and this makes a copy(or not?)
-
+        self.redrawVisible()
         # initialize bg color
         self.setRowColors(rows= self.master.result.index.to_list(), clr= self.cellbackgr, cols= 'all')
         # initialize font color
