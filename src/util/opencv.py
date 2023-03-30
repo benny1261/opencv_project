@@ -15,14 +15,25 @@ SPLIT = 5
 ELIM_HCT_SIZE = 16
 ELIM_EPCAM_SIZE = 81
 ELIM_WBC_SIZE = 30
-BETA = 0.4
 DISTANCE_ELIM = 10
 PROTOCOL_PRE = {'CTC':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, None, ELIM_WBC_SIZE),
-                'CTC(vimentin)':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE)}
-PROTOCOL_DF = {'CTC': (False, True, None, False),
-               'CTC(vimentin)': (False, True, True, False)}
-PROTOCOL_NAME = {'CTC':('hct', 'epcam', None, 'wbc'),
-                 'CTC(vimentin)':('hct', 'epcam', 'vimentin', 'wbc')}
+                'CTC(vimentin)':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE),
+                'CTC(cd11b-)':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE),
+                'CTC(cd11b+)':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE),
+                'MDSC':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE),
+                'T cell':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE)}
+PROTOCOL_DF = {'CTC': (False, True, None, False),                                   # True= candidate, False= campare
+               'CTC(vimentin)': (False, True, True, False),
+               'CTC(cd11b-)': (False, True, False, False),
+               'CTC(cd11b+)': (False, True, False, False),
+               'MDSC': (False, True, False, False),
+               'T cell':(False, True, False, False)}
+PROTOCOL_NAME = {'CTC':('hct', 'epcam', None, 'cd45'),
+                 'CTC(vimentin)':('hct', 'epcam', 'vimentin', 'cd45'),
+                 'CTC(cd11b-)':('hct', 'epcam', 'cd11b', 'cd45'),
+                 'CTC(cd11b+)':('hct', 'epcam', 'cd11b', 'cd45'),
+                 'MDSC':('hct', 'epcam', 'cd11b', 'cd14'),
+                 'T cell':('hct', 'epcam', 'cd25', 'cd4')}
 # analysis parameters
 HCT_AREA = 42
 WBC_AREA = 60
@@ -31,12 +42,24 @@ WBC_THRESHOLD = 0.3                                                             
 SHARPNESS_THRESHOLD = 14000                                                         # laplace blurness detection of roi in wbc
 ROUNDNESS_THRESHOLD = 0.7
 DIAMETER_THRESHOLD = (10, 27)
-PROTOCOL_PN = {'CTC':(True, None, None, False),
-               'CTC(vimentin)':(True, None, None, False)}
+PROTOCOL_PN = {'CTC':(True, None, None, False),                                     # True= positive index, False= negative index
+               'CTC(vimentin)':(True, None, None, False),
+               'CTC(cd11b-)':(True, None, False, False),
+               'CTC(cd11b+)':(True, None, True, False),
+               'MDSC':(True, None, True, True),
+               'T cell':(True, None, True, True)}
 PROTOCOL_THRES = {'CTC':(HCT_THRESHOLD, None, None, WBC_THRESHOLD),
-                  'CTC(vimentin)':(HCT_THRESHOLD, None, None, WBC_THRESHOLD)}
+                  'CTC(vimentin)':(HCT_THRESHOLD, None, None, WBC_THRESHOLD),
+                  'CTC(cd11b-)':(HCT_THRESHOLD, None, WBC_THRESHOLD, WBC_THRESHOLD),
+                  'CTC(cd11b+)':(HCT_THRESHOLD, None, WBC_THRESHOLD, WBC_THRESHOLD),
+                  'MDSC':(HCT_THRESHOLD, None, WBC_THRESHOLD, WBC_THRESHOLD),
+                  'T cell':(HCT_THRESHOLD, None, WBC_THRESHOLD, WBC_THRESHOLD)}
 PROTOCOL_AREA = {'CTC':(HCT_AREA, None, None, WBC_AREA),
-                 'CTC(vimentin)':(HCT_AREA, None, None, WBC_AREA)}
+                 'CTC(vimentin)':(HCT_AREA, None, None, WBC_AREA),
+                 'CTC(cd11b-)':(HCT_AREA, None, WBC_AREA, WBC_AREA),
+                 'CTC(cd11b+)':(HCT_AREA, None, WBC_AREA, WBC_AREA),
+                 'MDSC':(HCT_AREA, None, WBC_AREA, WBC_AREA),
+                 'T cell':(HCT_AREA, None, WBC_AREA, WBC_AREA)}
 # postprocessing parameters
 TARGET_MARK = (0,0,255)
 NONTARGET_MARK = (18,153,255)
@@ -110,22 +133,21 @@ class Cv_api:
             cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary0.jpg"), self.master.pres[0])
         if self.master.export_frame.binary1_switch.get():
             cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary1.jpg"), self.master.pres[1])
+        if self.master.export_frame.binary2_switch.get():
+            cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary2.jpg"), self.master.pres[2])
         if self.master.export_frame.binary3_switch.get():
             cv2.imwrite(os.path.join(self.master.export_dir.get(), "binary3.jpg"), self.master.pres[3])
 
-        if self.master.home_frame_type.get() == 'CTC':
+        if self.master.export_frame.mask_switch.get():
+            mask = image_postprocessing(self.master.df, self.master.result, *self.master.pres)
+            cv2.imwrite(os.path.join(self.master.export_dir.get(), 'mask.png'), mask)
 
-            image_postprocessing(self.master.pres[0], self.master.pres[1], self.master.pres[3],
-            self.master.df, self.master.result, path= self.master.export_dir.get(),
-            mark= self.master.export_frame.mark_switch.get(),
-            mask= self.master.export_frame.mask_switch.get(), beta= BETA)
-
-            if self.master.export_frame.raw_data_switch.get():
-                with pd.ExcelWriter(os.path.join(self.master.export_dir.get(), 'data.xlsx')) as writer:
-                    self.master.df.to_excel(writer)
-            if self.master.export_frame.result_data_switch.get():
-                with pd.ExcelWriter(os.path.join(self.master.export_dir.get(), 'result.xlsx')) as writer:
-                    self.master.result.to_excel(writer)
+        if self.master.export_frame.raw_data_switch.get():
+            with pd.ExcelWriter(os.path.join(self.master.export_dir.get(), 'data.xlsx')) as writer:
+                self.master.df.to_excel(writer)
+        if self.master.export_frame.result_data_switch.get():
+            with pd.ExcelWriter(os.path.join(self.master.export_dir.get(), 'result.xlsx')) as writer:
+                self.master.result.to_excel(writer)
 
         self.busy_flag = False
 
@@ -253,56 +275,31 @@ def image_slice(df: pd.DataFrame, index, pixel_scale:int, canv_len:int, *imgs: n
 
     return uv_slice, fitc_slice, pe_slice, apc_slice
 
-def image_postprocessing(hct_img: np.ndarray, ep_img: np.ndarray, wbc_img: np.ndarray, df: pd.DataFrame, result: pd.DataFrame,
-                         path: str, mark= False, mask= False, beta = BETA):
+def image_postprocessing(df: pd.DataFrame, result: pd.DataFrame, *pres: np.ndarray):
     '''takes both information and result dataframe as input\n
-    mark -> add mark on merge image\n
     mask -> only mark no background'''
 
-    RGBep = np.dstack((ep_img, ep_img, ep_img))                                         # white
-    RGBhct = np.dstack((hct_img, np.zeros_like(hct_img), np.zeros_like(hct_img)))       # blue
-    RGBwbc = np.dstack((np.zeros_like(wbc_img), wbc_img, np.zeros_like(wbc_img)))       # green
-    if mask:
-        bg = np.dstack((np.zeros_like(ep_img), np.zeros_like(ep_img), np.zeros_like(ep_img)))
-
-    # make merge image of epcam, hoechst and wbc
-    hctwbc_mix = cv2.add(RGBhct, RGBwbc)
-    merge = cv2.addWeighted(RGBep, 1-beta, hctwbc_mix, beta, gamma= 0)
-    intersection = cv2.bitwise_and(ep_img, cv2.bitwise_or(hct_img, wbc_img))
-    onlyep_mask = cv2.bitwise_and(ep_img, cv2.bitwise_not(intersection))
-
-    # replace non intersection epcam area by pure white
-    blk = cv2.bitwise_and(merge, merge, mask= cv2.bitwise_not(onlyep_mask))             # make region in mask black(clean)
-    final = cv2.add(blk, np.dstack((onlyep_mask, onlyep_mask, onlyep_mask)))            # make region in mask white
+    bg = np.dstack((np.zeros_like(pres[0]), np.zeros_like(pres[0]), np.zeros_like(pres[0])))
 
     for _ in df.index:
-        center = df['center'][_]
+        cx, cy = df['center_x'][_], df['center_y'][_]
         e = df['roundness'][_]
         if result['target'][_]:
             color = TARGET_MARK
         else:
             color = NONTARGET_MARK
 
-        if mark:
-            cv2.circle(final, center, 30, color, 2)
-            cv2.putText(final, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),        # label index starts from 0
-            fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
-            cv2.putText(final, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
-            fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
-        if mask:
-            cv2.circle(bg, center, 30, color, 2)
-            cv2.putText(bg, f'{_}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]),
-            fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
-            cv2.putText(bg, f'e={round(e,3)}', (center[0]+MARKCOORDINATE[0], center[1]+MARKCOORDINATE[1]+12),
-            fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
-    if mark:
-        cv2.imwrite(os.path.join(path, 'mark.jpg'), final)
+        cv2.circle(bg, (cx, cy), 30, color, 2)
+        cv2.putText(bg, f'{_}', (cx+MARKCOORDINATE[0], cy+MARKCOORDINATE[1]),       # label index starts from 0
+        fontFace= MARKFONT, fontScale= 1,color= color, thickness= 1)
+        cv2.putText(bg, f'e={round(e,3)}', (cx+MARKCOORDINATE[0], cy+MARKCOORDINATE[1]+12),
+        fontFace= MARKFONT, fontScale= 0.5,color= color, thickness= 1)
 
-    if mask:
-        markgray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
-        _, markmask = cv2.threshold(markgray, 1, 255, cv2.THRESH_BINARY)
-        bgra = np.dstack((bg, markmask))
-        cv2.imwrite(os.path.join(path, 'mask.png'), bgra)
+    markgray = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
+    _, markmask = cv2.threshold(markgray, 1, 255, cv2.THRESH_BINARY)
+    bgra = np.dstack((bg, markmask))                                                # make 4th alpha channel
+
+    return bgra
 
 def show(img: np.ndarray, name: str):
 

@@ -433,12 +433,11 @@ class ExportFrame(ctk.CTkFrame):
 
         # export setting widgets
         self.setting_frame.grid_columnconfigure(0, weight= 1)
-        self.setting_frame.grid_rowconfigure(tuple(range(8)), weight= 1)
+        self.setting_frame.grid_rowconfigure(tuple(range(7)), weight= 1)
         self.binary0_switch = FlipSwitch(self.setting_frame, text= 'binary 0')
         self.binary1_switch = FlipSwitch(self.setting_frame, text= 'binary 1')
-        self.binary2_switch = FlipSwitch(self.setting_frame, text= 'binary 2', state= 'disabled')
+        self.binary2_switch = FlipSwitch(self.setting_frame, text= 'binary 2')
         self.binary3_switch = FlipSwitch(self.setting_frame, text= 'binary 3')
-        self.mark_switch = FlipSwitch(self.setting_frame, text= 'mark')
         self.mask_switch = FlipSwitch(self.setting_frame, text= 'mask')
         self.mask_switch.select()
         self.raw_data_switch = FlipSwitch(self.setting_frame, text= 'raw data')
@@ -447,10 +446,9 @@ class ExportFrame(ctk.CTkFrame):
         self.binary1_switch.grid(row = 1, column = 0)
         self.binary2_switch.grid(row = 2, column = 0)
         self.binary3_switch.grid(row = 3, column = 0)
-        self.mark_switch.grid(row = 4, column = 0)
-        self.mask_switch.grid(row = 5, column = 0)
-        self.raw_data_switch.grid(row = 6, column = 0)
-        self.result_data_switch.grid(row = 7, column = 0, pady= (0, 30))
+        self.mask_switch.grid(row = 4, column = 0)
+        self.raw_data_switch.grid(row = 5, column = 0)
+        self.result_data_switch.grid(row = 6, column = 0, pady= (0, 30))
 
         # export destination widgets
         self.destination_frame.grid_columnconfigure(1, weight= 1)
