@@ -13,7 +13,7 @@ CLIP_LIMIT = 4
 TILEGRIDSIZE = 8
 SPLIT = 5
 ELIM_HCT_SIZE = 16
-ELIM_EPCAM_SIZE = 81
+ELIM_EPCAM_SIZE = 75
 ELIM_WBC_SIZE = 30
 DISTANCE_ELIM = 10
 PROTOCOL_PRE = {'CTC':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, None, ELIM_WBC_SIZE),
@@ -21,19 +21,25 @@ PROTOCOL_PRE = {'CTC':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, None, ELIM_WBC_SIZE),
                 'CTC(cd11b-)':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE),
                 'CTC(cd11b+)':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE),
                 'MDSC':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE),
-                'T cell':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE)}
+                'T cell':(ELIM_HCT_SIZE, ELIM_EPCAM_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE),
+                'fnRBC(1)':(ELIM_HCT_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE, None),
+                'fnRBC(2)':(ELIM_HCT_SIZE, ELIM_WBC_SIZE, ELIM_WBC_SIZE, None)}
 PROTOCOL_DF = {'CTC': (False, True, None, False),                                   # True= candidate, False= campare
                'CTC(vimentin)': (False, True, True, False),
                'CTC(cd11b-)': (False, True, False, False),
                'CTC(cd11b+)': (False, True, False, False),
                'MDSC': (False, True, False, False),
-               'T cell':(False, True, False, False)}
+               'T cell':(False, True, False, False),
+               'fnRBC(1)':(True, False, True, None),
+               'fnRBC(2)':(True, False, True, None)}
 PROTOCOL_NAME = {'CTC':('hct', 'epcam', None, 'cd45'),
                  'CTC(vimentin)':('hct', 'epcam', 'vimentin', 'cd45'),
                  'CTC(cd11b-)':('hct', 'epcam', 'cd11b', 'cd45'),
                  'CTC(cd11b+)':('hct', 'epcam', 'cd11b', 'cd45'),
                  'MDSC':('hct', 'epcam', 'cd11b', 'cd14'),
-                 'T cell':('hct', 'epcam', 'cd25', 'cd4')}
+                 'T cell':('hct', 'epcam', 'cd25', 'cd4'),
+                 'fnRBC(1)':('hct', 'cd147', 'cd71', None),
+                 'fnRBC(2)':('hct', 'cd45', 'hbf', None)}
 # analysis parameters
 HCT_AREA = 42
 WBC_AREA = 60
@@ -47,19 +53,25 @@ PROTOCOL_PN = {'CTC':(True, None, None, False),                                 
                'CTC(cd11b-)':(True, None, False, False),
                'CTC(cd11b+)':(True, None, True, False),
                'MDSC':(True, None, True, True),
-               'T cell':(True, None, True, True)}
+               'T cell':(True, None, True, True),
+               'fnRBC(1)':(None, True, None, None),
+               'fnRBC(2)':(None, False, None, None)}
 PROTOCOL_THRES = {'CTC':(HCT_THRESHOLD, None, None, WBC_THRESHOLD),
                   'CTC(vimentin)':(HCT_THRESHOLD, None, None, WBC_THRESHOLD),
                   'CTC(cd11b-)':(HCT_THRESHOLD, None, WBC_THRESHOLD, WBC_THRESHOLD),
                   'CTC(cd11b+)':(HCT_THRESHOLD, None, WBC_THRESHOLD, WBC_THRESHOLD),
                   'MDSC':(HCT_THRESHOLD, None, WBC_THRESHOLD, WBC_THRESHOLD),
-                  'T cell':(HCT_THRESHOLD, None, WBC_THRESHOLD, WBC_THRESHOLD)}
+                  'T cell':(HCT_THRESHOLD, None, WBC_THRESHOLD, WBC_THRESHOLD),
+                  'fnRBC(1)':(None, WBC_THRESHOLD, None, None),
+                  'fnRBC(2)':(None, WBC_THRESHOLD, None, None)}
 PROTOCOL_AREA = {'CTC':(HCT_AREA, None, None, WBC_AREA),
                  'CTC(vimentin)':(HCT_AREA, None, None, WBC_AREA),
                  'CTC(cd11b-)':(HCT_AREA, None, WBC_AREA, WBC_AREA),
                  'CTC(cd11b+)':(HCT_AREA, None, WBC_AREA, WBC_AREA),
                  'MDSC':(HCT_AREA, None, WBC_AREA, WBC_AREA),
-                 'T cell':(HCT_AREA, None, WBC_AREA, WBC_AREA)}
+                 'T cell':(HCT_AREA, None, WBC_AREA, WBC_AREA),
+                 'fnRBC(1)':(None, WBC_AREA, None, None),
+                 'fnRBC(2)':(None, WBC_AREA, None, None)}
 # postprocessing parameters
 TARGET_MARK = (0,0,255)
 NONTARGET_MARK = (18,153,255)
