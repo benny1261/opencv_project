@@ -1,55 +1,66 @@
 import os
 import cv2
-import glob
+import re
 import numpy as np
-import util.opencv as cv
-import pandas as pd
 import time
+from skimage import measure, morphology
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
-start_time = time.time()
-# Input =======================================================================================
-DATADIRECTORY = "data"
-root_dir = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
-os.chdir(root_dir)
-data_dir = os.path.join(os.getcwd(), DATADIRECTORY)
-if not os.path.exists(data_dir):
-    os.makedirs(data_dir)
-img_list = glob.glob(os.path.join(DATADIRECTORY, "*.jpg"))
+class MyHandler(FileSystemEventHandler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.queue = []
+        self.img_queue = []
 
-# Parameters ==================================================================================
-MARK = True
-MASK = True
-BETA = 0.4
+    def on_created(self, event):
+        # Handle file creation event here
+        if not event.is_directory:
+            filename = os.path.basename(event.src_path)
+            print(f"{filename} has been created")
+            # self.counter = int(re.search(r"(\d+)\.jpg", filename).group(1))
 
-# Reading =====================================================================================
-for i in img_list:
-    if '_0.jpg' in i:
-        hct = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
-    elif '_1.jpg' in i:
-        epcam = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
-    elif '_3.jpg' in i:
-        wbc = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+            # update queues
+            self.queue.append(event.src_path)
+            if len(self.queue)%3 == 0:
+                self.import_img(self.queue[-3:])
+                self.preprocess()
 
-# df
-pre_0 = cv.preprocess_full(hct, 16)
-pre_1 = cv.preprocess_rare(epcam, 81)
-pre_3 = cv.preprocess_full(wbc, 26)
+                logic = cv2.bitwise_and(self.img_queue[1], cv2.bitwise_not(self.img_queue[2]), mask= self.img_queue[1])
+                logic = cv2.bitwise_and(logic, self.img_queue[0])
+                cv2.imwrite('logic.jpg', logic)
+    
+    def import_img(self, img_paths):
+        self.img_queue = []
+        for path in img_paths:
+            self.img_queue.append(cv2.imread(path, cv2.IMREAD_GRAYSCALE))
 
-cv2.imwrite(os.path.join(DATADIRECTORY, "binary0n.jpg"), pre_0)
-cv2.imwrite(os.path.join(DATADIRECTORY, "binary1n.jpg"), pre_1)
-cv2.imwrite(os.path.join(DATADIRECTORY, "binary3n.jpg"), pre_3)
+    def preprocess(self):
+        'overwrites img queue'
+        for _ in range(3):
+            ret, masked = cv2.threshold(self.img_queue[_], 0, 255, cv2.THRESH_TRIANGLE)
+            labeled = np.array(measure.label(masked, connectivity= 2), bool)
+            labeled = morphology.remove_small_holes(labeled, area_threshold = 30, connectivity= 2)
+            labeled = morphology.remove_small_objects(labeled, min_size= 16, connectivity= 2)
+            npimg = np.where(labeled > 0, 255, 0).astype(np.uint8)
+            # cv2.imwrite(f'{_}.jpg', npimg)
+            self.img_queue[_] = npimg
+        
 
-# provide dataframe and export image ======================================================
-# print("creating dataframe")
-# df = cv.img2dataframe(pre_1, pre_0, pre_3)
-# print("post-processing")
-# cv.image_postprocessing(pre_1, pre_0, pre_3, df, path= DATADIRECTORY, mark= MARK, mask= MASK, beta= BETA)
+if __name__ == "__main__":
+    os.chdir(r'C:\Users\ohyea\OneDrive\Desktop')
+    watchpath = r'C:\Users\ohyea\OneDrive\Desktop\SGImage'
+    event_handler = MyHandler()
+    observer = Observer()
+    observer.schedule(event_handler, path= watchpath, recursive=False)
+    observer.start()
+    
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    
+    observer.join()
 
-# with pd.ExcelWriter(os.path.join(DATADIRECTORY, "CTC.xlsx")) as writer:
-#     df.to_excel(writer)
-
-end_time = time.time()
-print("++++++++++++++++++++++++++++++++++++++++++")
-print("elapsed time:", end_time-start_time,"seconds")
-
-cv2.waitKey(0)
+# cv2.waitKey(0)
